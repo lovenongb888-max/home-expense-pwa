@@ -1,0 +1,1 @@
+ALTER TABLE `expenses` ADD `recipientName` varchar(180);

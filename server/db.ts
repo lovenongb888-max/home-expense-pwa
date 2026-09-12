@@ -63,17 +63,17 @@ const defaultCategories = [
   { name: "สุขภาพ", icon: "heart-pulse", color: "#D86D79" },
 ];
 
-export async function ensureDefaultCategories(userId: number) {
+export async function ensureDefaultCategories(userId: number, ownerKey = "legacy") {
   const db = await getDb();
   if (!db) return [];
-  const existing = await db.select().from(expenseCategories).where(eq(expenseCategories.userId, userId));
+  const existing = await db.select().from(expenseCategories).where(and(eq(expenseCategories.userId, userId), eq(expenseCategories.ownerKey, ownerKey)));
   if (existing.length > 0) return existing;
-  await db.insert(expenseCategories).values(defaultCategories.map(item => ({ ...item, userId })));
-  return db.select().from(expenseCategories).where(eq(expenseCategories.userId, userId)).orderBy(asc(expenseCategories.id));
+  await db.insert(expenseCategories).values(defaultCategories.map(item => ({ ...item, userId, ownerKey })));
+  return db.select().from(expenseCategories).where(and(eq(expenseCategories.userId, userId), eq(expenseCategories.ownerKey, ownerKey))).orderBy(asc(expenseCategories.id));
 }
 
-export async function getCategories(userId: number) {
-  return ensureDefaultCategories(userId);
+export async function getCategories(userId: number, ownerKey = "legacy") {
+  return ensureDefaultCategories(userId, ownerKey);
 }
 
 export async function createCategory(data: InsertExpenseCategory) {
@@ -85,14 +85,14 @@ export async function createCategory(data: InsertExpenseCategory) {
   return created[0];
 }
 
-export async function deleteCategory(userId: number, categoryId: number) {
+export async function deleteCategory(userId: number, categoryId: number, ownerKey = "legacy") {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.update(expenses).set({ categoryId: null }).where(and(eq(expenses.userId, userId), eq(expenses.categoryId, categoryId)));
-  await db.delete(expenseCategories).where(and(eq(expenseCategories.userId, userId), eq(expenseCategories.id, categoryId)));
+  await db.update(expenses).set({ categoryId: null }).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.categoryId, categoryId)));
+  await db.delete(expenseCategories).where(and(eq(expenseCategories.userId, userId), eq(expenseCategories.ownerKey, ownerKey), eq(expenseCategories.id, categoryId)));
 }
 
-export async function listExpenses(userId: number, from: Date, to: Date) {
+export async function listExpenses(userId: number, from: Date, to: Date, ownerKey = "legacy") {
   const db = await getDb();
   if (!db) return [];
   return db
@@ -101,6 +101,7 @@ export async function listExpenses(userId: number, from: Date, to: Date) {
       userId: expenses.userId,
       categoryId: expenses.categoryId,
       title: expenses.title,
+      recipientName: expenses.recipientName,
       amount: expenses.amount,
       spentAt: expenses.spentAt,
       note: expenses.note,
@@ -112,8 +113,8 @@ export async function listExpenses(userId: number, from: Date, to: Date) {
       categoryColor: expenseCategories.color,
     })
     .from(expenses)
-    .leftJoin(expenseCategories, eq(expenses.categoryId, expenseCategories.id))
-    .where(and(eq(expenses.userId, userId), gte(expenses.spentAt, from), lt(expenses.spentAt, to)))
+    .leftJoin(expenseCategories, and(eq(expenses.categoryId, expenseCategories.id), eq(expenses.ownerKey, expenseCategories.ownerKey)))
+    .where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), gte(expenses.spentAt, from), lt(expenses.spentAt, to)))
     .orderBy(desc(expenses.spentAt), desc(expenses.id));
 }
 
@@ -126,18 +127,18 @@ export async function createExpense(data: InsertExpense) {
   return created[0];
 }
 
-export async function deleteExpense(userId: number, expenseId: number) {
+export async function deleteExpense(userId: number, expenseId: number, ownerKey = "legacy") {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  await db.delete(expenses).where(and(eq(expenses.userId, userId), eq(expenses.id, expenseId)));
+  await db.delete(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId)));
 }
 
-export async function getExpenseStats(userId: number, from: Date, to: Date) {
+export async function getExpenseStats(userId: number, from: Date, to: Date, ownerKey = "legacy") {
   const db = await getDb();
   if (!db) return { total: "0", count: 0 };
   const result = await db
     .select({ total: sql<string>`COALESCE(SUM(${expenses.amount}), 0)`, count: sql<number>`COUNT(*)` })
     .from(expenses)
-    .where(and(eq(expenses.userId, userId), gte(expenses.spentAt, from), lt(expenses.spentAt, to)));
+    .where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), gte(expenses.spentAt, from), lt(expenses.spentAt, to)));
   return { total: String(result[0]?.total ?? "0"), count: Number(result[0]?.count ?? 0) };
 }

@@ -6,7 +6,7 @@ function createContext(user: TrpcContext["user"] = null): TrpcContext {
   return {
     user,
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
-    res: { clearCookie: () => undefined } as TrpcContext["res"],
+    res: { clearCookie: () => undefined, cookie: () => undefined } as TrpcContext["res"],
   };
 }
 
@@ -27,9 +27,9 @@ describe("expense router validation", () => {
     await expect(caller.expenses.list({ year: 2026, month: 13 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  it("requires authentication for category operations", async () => {
+  it("allows category reads without authentication", async () => {
     const caller = appRouter.createCaller(createContext());
-    await expect(caller.categories.list()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.categories.list()).resolves.toBeDefined();
   });
 
   it("rejects unsupported receipt types before upload", async () => {
@@ -45,6 +45,6 @@ describe("expense router validation", () => {
       lastSignedIn: new Date(),
     }));
 
-    await expect(caller.receipts.upload({ fileName: "receipt.exe", mimeType: "application/octet-stream" as never, base64: "abc" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.receipts.ocr({ mimeType: "application/octet-stream" as never, base64: "abc" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

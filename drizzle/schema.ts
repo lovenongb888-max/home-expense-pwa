@@ -15,6 +15,7 @@ export const users = mysqlTable("users", {
 export const expenseCategories = mysqlTable("expenseCategories", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  ownerKey: varchar("ownerKey", { length: 64 }).notNull().default("legacy"),
   name: varchar("name", { length: 120 }).notNull(),
   icon: varchar("icon", { length: 32 }).notNull().default("circle"),
   color: varchar("color", { length: 24 }).notNull().default("#3B7D78"),
@@ -24,8 +25,10 @@ export const expenseCategories = mysqlTable("expenseCategories", {
 export const expenses = mysqlTable("expenses", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
+  ownerKey: varchar("ownerKey", { length: 64 }).notNull().default("legacy"),
   categoryId: int("categoryId"),
   title: varchar("title", { length: 160 }).notNull(),
+  recipientName: varchar("recipientName", { length: 180 }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   spentAt: timestamp("spentAt").notNull(),
   note: text("note"),

@@ -1,5 +1,3 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +57,7 @@ function getCategoryIcon(icon?: string | null) {
 
 type ExpenseDraft = {
   title: string;
+  recipientName: string;
   amount: string;
   categoryId: string;
   spentAt: string;
@@ -68,6 +67,7 @@ type ExpenseDraft = {
 
 const emptyDraft = (): ExpenseDraft => ({
   title: "",
+  recipientName: "",
   amount: "",
   categoryId: "",
   spentAt: toDateInput(new Date()),
@@ -84,22 +84,36 @@ function fileToBase64(file: File) {
   });
 }
 
+function normalizeOcrDate(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [rawYear, month, day] = value.split("-").map(Number);
+  const year = rawYear > 2400 ? rawYear - 543 : rawYear;
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+
+function normalizeOcrAmount(value: string | null) {
+  if (!value) return null;
+  const normalized = value.replace(/[,฿\s]/g, "");
+  return /^\d+(\.\d{1,2})?$/.test(normalized) ? normalized : null;
+}
+
 export default function Home() {
-  const { user } = useAuth();
   const today = new Date();
   const [period, setPeriod] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 });
   const [isExpenseOpen, setExpenseOpen] = useState(false);
   const [isCategoryOpen, setCategoryOpen] = useState(false);
   const [draft, setDraft] = useState<ExpenseDraft>(emptyDraft);
+  const [ocrStatus, setOcrStatus] = useState<"idle" | "reading" | "done" | "failed">("idle");
   const [newCategory, setNewCategory] = useState("");
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
-  const categoriesQuery = trpc.categories.list.useQuery(undefined, { enabled: Boolean(user) });
-  const expensesQuery = trpc.expenses.list.useQuery(period, { enabled: Boolean(user) });
-  const statsQuery = trpc.expenses.stats.useQuery(period, { enabled: Boolean(user) });
+  const categoriesQuery = trpc.categories.list.useQuery();
+  const expensesQuery = trpc.expenses.list.useQuery(period);
+  const statsQuery = trpc.expenses.stats.useQuery(period);
   const uploadReceipt = trpc.receipts.upload.useMutation();
+  const ocrReceipt = trpc.receipts.ocr.useMutation();
   const createExpense = trpc.expenses.create.useMutation();
   const deleteExpense = trpc.expenses.delete.useMutation();
   const createCategory = trpc.categories.create.useMutation();
@@ -148,6 +162,7 @@ export default function Home() {
       }
       await createExpense.mutateAsync({
         title: draft.title.trim(),
+        recipientName: draft.recipientName.trim() || null,
         amount: draft.amount,
         categoryId: draft.categoryId ? Number(draft.categoryId) : null,
         spentAt: new Date(`${draft.spentAt}T12:00:00`),
@@ -157,6 +172,7 @@ export default function Home() {
       });
       toast.success("บันทึกรายจ่ายแล้ว");
       setDraft(emptyDraft());
+      setOcrStatus("idle");
       setExpenseOpen(false);
       await Promise.all([utils.expenses.list.invalidate(), utils.expenses.stats.invalidate()]);
     } catch (error) {
@@ -200,31 +216,46 @@ export default function Home() {
     setInstallPrompt(null);
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-[100dvh] bg-[#F7F5EF] flex items-center justify-center px-6">
-        <div className="max-w-md text-center space-y-6">
-          <div className="mx-auto h-16 w-16 rounded-3xl bg-[#2F6F68] text-white flex items-center justify-center shadow-xl shadow-[#2F6F68]/20"><WalletCards className="h-8 w-8" /></div>
-          <div><p className="eyebrow">บ้านเรา / HOME EXPENSES</p><h1 className="font-display text-4xl mt-3">จัดเงินให้อยู่<br /><span className="text-[#2F6F68]">แบบที่เป็นเรา</span></h1><p className="text-[#706F69] mt-4 leading-7">รวมรายจ่ายในบ้านไว้ที่เดียว เพิ่มหมวดหมู่ได้เอง และเก็บสลิปให้ค้นง่าย</p></div>
-          <Button onClick={() => startLogin()} className="w-full h-12 rounded-xl bg-[#2F6F68] hover:bg-[#275E58] text-white">เข้าสู่ระบบเพื่อเริ่มใช้งาน</Button>
-        </div>
-      </div>
-    );
-  }
+  const handleReceiptSelected = async (file: File | null) => {
+    setDraft(current => ({ ...current, file }));
+    if (!file || (!file.type.startsWith("image/") && file.type !== "application/pdf")) {
+      setOcrStatus("idle");
+      return;
+    }
+    setOcrStatus("reading");
+    try {
+      const extracted = await ocrReceipt.mutateAsync({
+        mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf",
+        base64: await fileToBase64(file),
+      });
+      setDraft(current => ({
+        ...current,
+        amount: normalizeOcrAmount(extracted.amount) ?? current.amount,
+        spentAt: normalizeOcrDate(extracted.transactionDate) ?? current.spentAt,
+        recipientName: extracted.recipientName ?? current.recipientName,
+      }));
+      const found = Boolean(extracted.amount || extracted.transactionDate || extracted.recipientName);
+      setOcrStatus(found ? "done" : "failed");
+      toast[found ? "success" : "info"](found ? "AI อ่านข้อมูลจากสลิปแล้ว กรุณาตรวจสอบก่อนบันทึก" : "ไม่พบข้อมูลชัดเจน กรุณาตรวจสอบและกรอกเอง");
+    } catch {
+      setOcrStatus("failed");
+      toast.info("AI อ่านสลิปไม่สำเร็จ คุณยังกรอกข้อมูลเองได้");
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] bg-[#F7F5EF] text-[#242C2A] -m-4 md:-m-6">
       <div className="max-w-[1440px] mx-auto px-5 py-5 md:px-10 md:py-8">
         <header className="flex items-center justify-between gap-4 mb-7">
           <div className="flex items-center gap-3"><div className="h-11 w-11 rounded-2xl bg-[#2F6F68] text-white flex items-center justify-center shadow-lg shadow-[#2F6F68]/15"><WalletCards className="h-5 w-5" /></div><div><p className="font-display text-xl font-semibold leading-none">บ้านเรา</p><p className="text-[11px] tracking-[0.18em] text-[#8C908B] uppercase mt-1">home expenses</p></div></div>
-          <div className="flex items-center gap-2"><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><div className="h-10 w-10 rounded-full bg-[#D7E7DE] flex items-center justify-center text-[#2F6F68] font-semibold">{(user.name ?? "U").slice(0, 1).toUpperCase()}</div></div>
+          <div className="flex items-center gap-2"><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><div className="h-10 w-10 rounded-full bg-[#D7E7DE] flex items-center justify-center text-[#2F6F68] font-semibold"><WalletCards className="h-5 w-5" /></div></div>
         </header>
 
         <section className="grid lg:grid-cols-[1.45fr_0.8fr] gap-5 items-stretch">
           <div className="rounded-[28px] bg-[#2F6F68] text-white p-6 md:p-8 relative overflow-hidden min-h-[250px] flex flex-col justify-between shadow-xl shadow-[#2F6F68]/15">
             <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full border border-white/10" /><div className="absolute right-10 -bottom-20 h-48 w-48 rounded-full border border-white/10" />
             <div className="relative"><p className="eyebrow text-white/60">สรุปค่าใช้จ่าย / {period.month.toString().padStart(2, "0")}</p><h1 className="font-display text-4xl md:text-5xl mt-3 tracking-tight">{formatBaht(total)}</h1><p className="text-white/65 mt-2">{statsQuery.data?.count ?? expenses.length} รายการในเดือนนี้</p></div>
-            <div className="relative flex items-center justify-between pt-7"><div className="flex items-center gap-2 text-sm text-white/80"><BarChart3 className="h-4 w-4" />ภาพรวมการใช้จ่าย</div><Button onClick={() => { setDraft(emptyDraft()); setExpenseOpen(true); }} className="rounded-xl bg-[#E5B95D] hover:bg-[#D7A94D] text-[#2B403B] font-semibold shadow-lg shadow-black/10"><Plus className="h-4 w-4 mr-2" />เพิ่มรายจ่าย</Button></div>
+            <div className="relative flex items-center justify-between pt-7"><div className="flex items-center gap-2 text-sm text-white/80"><BarChart3 className="h-4 w-4" />ภาพรวมการใช้จ่าย</div><Button onClick={() => { setDraft(emptyDraft()); setOcrStatus("idle"); setExpenseOpen(true); }} className="rounded-xl bg-[#E5B95D] hover:bg-[#D7A94D] text-[#2B403B] font-semibold shadow-lg shadow-black/10"><Plus className="h-4 w-4 mr-2" />เพิ่มรายจ่าย</Button></div>
           </div>
           <div className="rounded-[28px] bg-[#E7EFE9] p-6 md:p-7 flex flex-col justify-between border border-[#D6E2D9]"><div className="flex justify-between items-start"><div><p className="eyebrow text-[#648078]">เดือนที่กำลังดู</p><p className="font-display text-2xl mt-2 capitalize">{monthLabel.format(new Date(period.year, period.month - 1, 1))}</p></div><div className="h-11 w-11 rounded-2xl bg-white/70 text-[#2F6F68] flex items-center justify-center"><ReceiptText className="h-5 w-5" /></div></div><div className="flex items-center justify-between mt-8"><Button variant="ghost" onClick={() => navigatePeriod(-1)} className="h-10 w-10 p-0 rounded-xl hover:bg-white/70"><ArrowLeft className="h-4 w-4" /></Button><span className="text-sm text-[#61726B]">เลื่อนดูรายเดือน</span><Button variant="ghost" onClick={() => navigatePeriod(1)} className="h-10 w-10 p-0 rounded-xl hover:bg-white/70"><ArrowRight className="h-4 w-4" /></Button></div></div>
         </section>
@@ -232,7 +263,7 @@ export default function Home() {
         <div className="grid lg:grid-cols-[1.45fr_0.8fr] gap-5 mt-5 items-start">
           <section className="rounded-[28px] bg-white p-5 md:p-7 shadow-sm border border-[#ECE9E1]">
             <div className="flex items-center justify-between mb-5"><div><p className="eyebrow">รายการล่าสุด</p><h2 className="font-display text-2xl mt-1">เงินออกไปไหนบ้าง</h2></div><span className="text-xs text-[#8C908B] bg-[#F7F5EF] rounded-full px-3 py-1.5">เรียงจากล่าสุด</span></div>
-            {expensesQuery.isLoading ? <div className="py-16 flex justify-center text-[#2F6F68]"><Loader2 className="h-6 w-6 animate-spin" /></div> : expenses.length === 0 ? <div className="py-14 text-center border border-dashed border-[#D9DDD6] rounded-2xl"><ReceiptText className="h-8 w-8 mx-auto text-[#A8B3AD]" /><p className="font-medium mt-3">ยังไม่มีรายจ่ายในเดือนนี้</p><p className="text-sm text-[#8C908B] mt-1">เริ่มจากกด “เพิ่มรายจ่าย” และแนบสลิปได้เลย</p></div> : <div className="space-y-1">{expenses.map(expense => { const Icon = getCategoryIcon(expense.categoryIcon); return <div key={expense.id} className="group flex items-center gap-3 py-3.5 border-b last:border-0 border-[#F0EEE8]"><div className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${expense.categoryColor ?? "#3B7D78"}18`, color: expense.categoryColor ?? "#3B7D78" }}><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="font-medium truncate">{expense.title}</p>{expense.receiptUrl && <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="text-[#2F6F68]" title="เปิดสลิป"><FileCheck2 className="h-3.5 w-3.5" /></a>}</div><p className="text-xs text-[#969B96] mt-1">{expense.categoryName ?? "ไม่ระบุหมวดหมู่"} · {shortDate.format(new Date(expense.spentAt))}</p></div><p className="font-semibold text-[#344540] whitespace-nowrap">{formatBaht(expense.amount)}</p><Button variant="ghost" onClick={() => removeExpense(expense.id)} className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 text-[#B06B67] hover:bg-[#FFF0EF] rounded-lg"><Trash2 className="h-4 w-4" /></Button></div>; })}</div>}
+            {expensesQuery.isLoading ? <div className="py-16 flex justify-center text-[#2F6F68]"><Loader2 className="h-6 w-6 animate-spin" /></div> : expenses.length === 0 ? <div className="py-14 text-center border border-dashed border-[#D9DDD6] rounded-2xl"><ReceiptText className="h-8 w-8 mx-auto text-[#A8B3AD]" /><p className="font-medium mt-3">ยังไม่มีรายจ่ายในเดือนนี้</p><p className="text-sm text-[#8C908B] mt-1">เริ่มจากกด “เพิ่มรายจ่าย” และแนบสลิปได้เลย</p></div> : <div className="space-y-1">{expenses.map(expense => { const Icon = getCategoryIcon(expense.categoryIcon); return <div key={expense.id} className="group flex items-center gap-3 py-3.5 border-b last:border-0 border-[#F0EEE8]"><div className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${expense.categoryColor ?? "#3B7D78"}18`, color: expense.categoryColor ?? "#3B7D78" }}><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="font-medium truncate">{expense.title}</p>{expense.receiptUrl && <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="text-[#2F6F68]" title="เปิดสลิป"><FileCheck2 className="h-3.5 w-3.5" /></a>}</div><p className="text-xs text-[#969B96] mt-1">{expense.recipientName ? `${expense.recipientName} · ` : ""}{expense.categoryName ?? "ไม่ระบุหมวดหมู่"} · {shortDate.format(new Date(expense.spentAt))}</p></div><p className="font-semibold text-[#344540] whitespace-nowrap">{formatBaht(expense.amount)}</p><Button variant="ghost" onClick={() => removeExpense(expense.id)} className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 text-[#B06B67] hover:bg-[#FFF0EF] rounded-lg"><Trash2 className="h-4 w-4" /></Button></div>; })}</div>}
           </section>
 
           <aside className="space-y-5">
@@ -243,7 +274,7 @@ export default function Home() {
         <div className="mt-6 flex sm:hidden justify-center"><Button variant="ghost" onClick={installApp} className="text-[#5E6A65] rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอปลงมือถือ</Button></div>
       </div>
 
-      {isExpenseOpen && <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5"><div className="w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto"><div className="sticky top-0 bg-[#FCFBF7]/95 backdrop-blur px-5 py-4 border-b border-[#ECE9E1] flex items-center justify-between"><div><p className="eyebrow">บันทึกรายการใหม่</p><h2 className="font-display text-2xl mt-1">เพิ่มรายจ่าย</h2></div><Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl"><X className="h-5 w-5" /></Button></div><form onSubmit={submitExpense} className="p-5 space-y-4"><div><label className="field-label">รายการ</label><Input autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="เช่น ซื้อของเข้าบ้าน" className="h-12 rounded-xl bg-white" /></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="h-12 rounded-xl bg-white" /></div></div><div><label className="field-label">หมวดหมู่</label><select value={draft.categoryId} onChange={e => setDraft({ ...draft, categoryId: e.target.value })} className="h-12 w-full rounded-xl border border-[#E5E3DC] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#2F6F68]/20"><option value="">ไม่ระบุหมวดหมู่</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div><div><label className="field-label">รายละเอียดเพิ่มเติม <span className="normal-case font-normal text-[#A0A39E]">(ถ้ามี)</span></label><Textarea value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="บันทึกช่วยจำสั้น ๆ" className="rounded-xl bg-white resize-none" rows={3} /></div><div><label className="field-label">สลิปการโอน</label><input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => setDraft({ ...draft, file: e.target.files?.[0] ?? null })} /><button type="button" onClick={() => fileInputRef.current?.click()} className="w-full border border-dashed border-[#B8C8BE] bg-[#F2F6F1] rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-[#EAF2EB] transition-colors"><div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-[#2F6F68]"><Camera className="h-5 w-5" /></div><div className="min-w-0"><p className="text-sm font-medium truncate">{draft.file?.name ?? "แนบรูปสลิปหรือ PDF"}</p><p className="text-xs text-[#8C908B] mt-1">รองรับไฟล์ไม่เกิน 6 MB</p></div>{draft.file ? <Check className="ml-auto h-4 w-4 text-[#2F6F68]" /> : <Plus className="ml-auto h-4 w-4 text-[#8C908B]" />}</button></div><Button type="submit" disabled={createExpense.isPending || uploadReceipt.isPending} className="w-full h-12 rounded-xl bg-[#2F6F68] hover:bg-[#275E58] text-white mt-2">{createExpense.isPending || uploadReceipt.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}บันทึกรายจ่าย</Button></form></div></div>}
+      {isExpenseOpen && <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5"><div className="w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto"><div className="sticky top-0 bg-[#FCFBF7]/95 backdrop-blur px-5 py-4 border-b border-[#ECE9E1] flex items-center justify-between"><div><p className="eyebrow">บันทึกรายการใหม่</p><h2 className="font-display text-2xl mt-1">เพิ่มรายจ่าย</h2></div><Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl"><X className="h-5 w-5" /></Button></div><form onSubmit={submitExpense} className="p-5 space-y-4"><div><label className="field-label">รายการ</label><Input autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="เช่น ซื้อของเข้าบ้าน" className="h-12 rounded-xl bg-white" /></div><div><label className="field-label">ชื่อผู้รับเงิน <span className="normal-case font-normal text-[#A0A39E]">(AI จะช่วยอ่านจากสลิป)</span></label><Input value={draft.recipientName} onChange={e => setDraft({ ...draft, recipientName: e.target.value })} placeholder="เช่น บริษัท สยามมาร์ท" className="h-12 rounded-xl bg-white" /></div><div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="h-12 rounded-xl bg-white" /></div></div><div><label className="field-label">หมวดหมู่</label><select value={draft.categoryId} onChange={e => setDraft({ ...draft, categoryId: e.target.value })} className="h-12 w-full rounded-xl border border-[#E5E3DC] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#2F6F68]/20"><option value="">ไม่ระบุหมวดหมู่</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div><div><label className="field-label">รายละเอียดเพิ่มเติม <span className="normal-case font-normal text-[#A0A39E]">(ถ้ามี)</span></label><Textarea value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="บันทึกช่วยจำสั้น ๆ" className="rounded-xl bg-white resize-none" rows={3} /></div><div><label className="field-label">สลิปการโอน</label><input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => handleReceiptSelected(e.target.files?.[0] ?? null)} /><button type="button" onClick={() => fileInputRef.current?.click()} className="w-full border border-dashed border-[#B8C8BE] bg-[#F2F6F1] rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-[#EAF2EB] transition-colors"><div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-[#2F6F68]">{ocrStatus === "reading" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}</div><div className="min-w-0"><p className="text-sm font-medium truncate">{draft.file?.name ?? "แนบรูปสลิปหรือ PDF"}</p><p className="text-xs text-[#8C908B] mt-1">{ocrStatus === "reading" ? "AI กำลังอ่านยอดเงิน วันที่ และชื่อผู้รับ..." : ocrStatus === "done" ? "AI อ่านข้อมูลแล้ว กรุณาตรวจสอบก่อนบันทึก" : "รองรับไฟล์ไม่เกิน 6 MB · AI จะอ่านรูปภาพหรือ PDF อัตโนมัติ"}</p></div>{draft.file && ocrStatus !== "reading" ? <Check className="ml-auto h-4 w-4 text-[#2F6F68]" /> : <Plus className="ml-auto h-4 w-4 text-[#8C908B]" />}</button></div><Button type="submit" disabled={createExpense.isPending || uploadReceipt.isPending || ocrReceipt.isPending} className="w-full h-12 rounded-xl bg-[#2F6F68] hover:bg-[#275E58] text-white mt-2">{createExpense.isPending || uploadReceipt.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}บันทึกรายจ่าย</Button></form></div></div>}
     </div>
   );
 }
