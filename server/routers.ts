@@ -6,7 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { createCategory, createExpense, deleteCategory, deleteExpense, getCategories, getExpenseStats, listExpenses } from "./db";
+import { createCategory, createExpense, deleteCategory, deleteExpense, getCategories, getExpenseStats, listExpenses, updateExpense } from "./db";
 import { storagePut } from "./storage";
 
 const monthInput = z.object({ year: z.number().int().min(2000).max(2200), month: z.number().int().min(1).max(12) });
@@ -80,11 +80,36 @@ export const appRouter = router({
         amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
         categoryId: z.number().int().positive().nullable().optional(),
         spentAt: z.date(),
+        referenceNumber: z.string().trim().max(500).nullable().optional(),
         note: z.string().max(2000).nullable().optional(),
         receiptKey: z.string().max(500).nullable().optional(),
         receiptUrl: z.string().max(700).nullable().optional(),
       }))
-      .mutation(({ ctx, input }) => createExpense({ ...input, userId: 1, ownerKey: getOwnerKey(ctx), recipientName: input.recipientName ?? null, categoryId: input.categoryId ?? null, note: input.note ?? null, receiptKey: input.receiptKey ?? null, receiptUrl: input.receiptUrl ?? null })),
+      .mutation(({ ctx, input }) => createExpense({ ...input, userId: 1, ownerKey: getOwnerKey(ctx), recipientName: input.recipientName ?? null, categoryId: input.categoryId ?? null, referenceNumber: input.referenceNumber ?? null, note: input.note ?? null, receiptKey: input.receiptKey ?? null, receiptUrl: input.receiptUrl ?? null })),
+    update: publicProcedure
+      .input(z.object({
+        id: z.number().int().positive(),
+        title: z.string().trim().min(1).max(160),
+        recipientName: z.string().trim().max(180).nullable().optional(),
+        amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+        categoryId: z.number().int().positive().nullable().optional(),
+        spentAt: z.date(),
+        referenceNumber: z.string().trim().max(500).nullable().optional(),
+        note: z.string().max(2000).nullable().optional(),
+        receiptKey: z.string().max(500).nullable().optional(),
+        receiptUrl: z.string().max(700).nullable().optional(),
+      }))
+      .mutation(({ ctx, input }) => updateExpense(1, input.id, getOwnerKey(ctx), {
+        title: input.title,
+        recipientName: input.recipientName ?? null,
+        amount: input.amount,
+        categoryId: input.categoryId ?? null,
+        spentAt: input.spentAt,
+        referenceNumber: input.referenceNumber ?? null,
+        note: input.note ?? null,
+        receiptKey: input.receiptKey ?? null,
+        receiptUrl: input.receiptUrl ?? null,
+      })),
     delete: publicProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ ctx, input }) => deleteExpense(1, input.id, getOwnerKey(ctx))),
   }),
   receipts: router({

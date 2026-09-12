@@ -104,6 +104,7 @@ export async function listExpenses(userId: number, from: Date, to: Date, ownerKe
       recipientName: expenses.recipientName,
       amount: expenses.amount,
       spentAt: expenses.spentAt,
+      referenceNumber: expenses.referenceNumber,
       note: expenses.note,
       receiptKey: expenses.receiptKey,
       receiptUrl: expenses.receiptUrl,
@@ -125,6 +126,14 @@ export async function createExpense(data: InsertExpense) {
   const id = Number(result[0].insertId);
   const created = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
   return created[0];
+}
+
+export async function updateExpense(userId: number, expenseId: number, ownerKey: string, data: Partial<InsertExpense>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  await db.update(expenses).set(data).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId)));
+  const updated = await db.select().from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId))).limit(1);
+  return updated[0];
 }
 
 export async function deleteExpense(userId: number, expenseId: number, ownerKey = "legacy") {

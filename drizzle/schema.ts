@@ -31,6 +31,7 @@ export const expenses = mysqlTable("expenses", {
   recipientName: varchar("recipientName", { length: 180 }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   spentAt: timestamp("spentAt").notNull(),
+  referenceNumber: varchar("referenceNumber", { length: 500 }),
   note: text("note"),
   receiptKey: text("receiptKey"),
   receiptUrl: text("receiptUrl"),

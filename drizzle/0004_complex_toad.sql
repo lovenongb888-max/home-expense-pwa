@@ -1,0 +1,1 @@
+ALTER TABLE `expenses` ADD `referenceNumber` varchar(500);

@@ -55,4 +55,21 @@ describe("expense router validation", () => {
       attachments: [{ mimeType: "image/jpeg", base64: "", label: "หน้า 1" }],
     })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("rejects invalid amounts before updating an expense", async () => {
+    const caller = appRouter.createCaller(createContext());
+
+    await expect(caller.expenses.update({
+      id: 1,
+      title: "ค่าอินเทอร์เน็ต",
+      recipientName: "AIS",
+      amount: "not-a-number",
+      categoryId: null,
+      spentAt: new Date(),
+      referenceNumber: "ABC123",
+      note: "ข้อมูลจาก QR",
+      receiptKey: null,
+      receiptUrl: null,
+    })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
 });
