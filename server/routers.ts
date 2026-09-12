@@ -11,6 +11,18 @@ import { storagePut } from "./storage";
 
 const monthInput = z.object({ year: z.number().int().min(2000).max(2200), month: z.number().int().min(1).max(12) });
 const receiptMime = z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const ocrImage = z.object({
+  mimeType: z.enum(["image/jpeg", "image/png"]),
+  base64: z.string().min(1),
+  label: z.string().max(40).optional(),
+});
+const ocrInput = z.object({
+  mimeType: receiptMime.optional(),
+  base64: z.string().min(1).optional(),
+  attachments: z.array(ocrImage).max(4).optional(),
+}).refine(input => (input.attachments?.length ?? 0) > 0 || Boolean(input.mimeType && input.base64), {
+  message: "ต้องมีไฟล์สำหรับ OCR",
+});
 const ownerKeyCache = new WeakMap<object, string>();
 
 function getOwnerKey(ctx: { req: { headers: { cookie?: string } }; res: { cookie: (name: string, value: string, options?: Record<string, unknown>) => void } }) {
@@ -85,17 +97,22 @@ export const appRouter = router({
         return storagePut(`anonymous/receipts/${Date.now()}-${safeName}`, buffer, input.mimeType);
       }),
     ocr: publicProcedure
-      .input(z.object({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "application/pdf"]), base64: z.string().min(1) }))
+      .input(ocrInput)
       .mutation(async ({ input }) => {
-        const attachment = input.mimeType === "application/pdf"
-          ? { type: "file_url" as const, file_url: { url: `data:${input.mimeType};base64,${input.base64}`, mime_type: input.mimeType } }
-          : { type: "image_url" as const, image_url: { url: `data:${input.mimeType};base64,${input.base64}`, detail: "high" as const } };
+        const attachments = input.attachments?.length
+          ? input.attachments.map(page => ({
+              type: "image_url" as const,
+              image_url: { url: `data:${page.mimeType};base64,${page.base64}`, detail: "high" as const },
+            }))
+          : input.mimeType === "application/pdf"
+            ? [{ type: "file_url" as const, file_url: { url: `data:${input.mimeType};base64,${input.base64}`, mime_type: input.mimeType } }]
+            : [{ type: "image_url" as const, image_url: { url: `data:${input.mimeType};base64,${input.base64}`, detail: "high" as const } }];
         const response = await invokeLLM({
           messages: [{
             role: "user",
             content: [
-              { type: "text", text: "อ่านสลิปการโอนเงินภาษาไทยจากภาพนี้ แล้วดึงข้อมูลตาม JSON schema เท่านั้น หากอ่านไม่ได้ให้คืนค่า null ห้ามเดาหรือเติมข้อมูลเอง วันที่ต้องอยู่ในรูปแบบ YYYY-MM-DD และ amount เป็นตัวเลขทศนิยม เช่น 1250.00 ชื่อผู้รับคือชื่อบัญชีหรือชื่อผู้รับเงินปลายทางที่ปรากฏในสลิป" },
-              attachment,
+              { type: "text", text: "คุณเป็นระบบ OCR ใบเสร็จและใบแจ้งหนี้ภาษาไทย อ่านภาพทุกหน้าที่แนบมาอย่างละเอียด โดยเฉพาะบิลค่าอินเทอร์เน็ตบ้าน เช่น AIS Fibre ซึ่งอาจเป็นใบแจ้งหนี้หลายส่วน ให้ดึงข้อมูลตาม JSON schema เท่านั้น ห้ามเดาหรือเติมข้อมูลเอง\n\nกติกาการอ่านจำนวนเงิน: เลือกยอดที่ต้องชำระจริงหรือยอดรวมทั้งสิ้น (Total, ยอดเรียกเก็บ, จำนวนเงินที่ต้องชำระ, ยอดสุทธิ) ไม่ใช่เลขที่ใบแจ้งหนี้ เลขลูกค้า ค่าบริการรายเดือนก่อนภาษี หรือยอดค้างเก่า หากมีหลายยอดให้เลือกยอดสุดท้ายที่ผู้ใช้ต้องจ่ายในเอกสาร\nกติกาวันที่: ใช้วันที่ออกบิลหรือวันที่เรียกเก็บเงิน หากไม่มีให้ใช้วันครบกำหนดชำระ และแปลงปี พ.ศ. เป็น ค.ศ. ในรูปแบบ YYYY-MM-DD\nชื่อผู้รับเงิน: ใช้ชื่อบริษัท/ร้านค้า/ผู้ให้บริการที่ออกบิล เช่น AIS หรือชื่อบัญชีปลายทาง ไม่ใช้ชื่อผู้ใช้บริการ\nหากอ่านค่าใดไม่ได้ให้คืนค่า null และตั้ง confidence ตามความชัดเจนของข้อมูล" },
+              ...attachments,
             ],
           }],
           response_format: {
@@ -116,7 +133,7 @@ export const appRouter = router({
               },
             },
           },
-          maxTokens: 300,
+          maxTokens: 500,
         });
         const raw = response.choices[0]?.message?.content;
         const text = Array.isArray(raw) ? raw.filter(part => part.type === "text").map(part => part.text).join("\n") : raw;

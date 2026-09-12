@@ -47,4 +47,12 @@ describe("expense router validation", () => {
 
     await expect(caller.receipts.ocr({ mimeType: "application/octet-stream" as never, base64: "abc" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("rejects malformed prepared OCR pages", async () => {
+    const caller = appRouter.createCaller(createContext());
+
+    await expect(caller.receipts.ocr({
+      attachments: [{ mimeType: "image/jpeg", base64: "", label: "หน้า 1" }],
+    })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
 });
