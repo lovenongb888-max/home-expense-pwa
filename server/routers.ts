@@ -6,7 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { createCategory, createExpense, deleteCategory, deleteExpense, getCategories, getExpenseStats, listExpenses, updateExpense } from "./db";
+import { createCategory, createExpense, deleteCategory, deleteExpense, getCategories, getExpenseStats, listExpenseHistory, listExpenses, updateExpense } from "./db";
 import { storagePut } from "./storage";
 
 const monthInput = z.object({ year: z.number().int().min(2000).max(2200), month: z.number().int().min(1).max(12) });
@@ -73,6 +73,7 @@ export const appRouter = router({
       const { from, to } = monthRange(input.year, input.month);
       return getExpenseStats(1, from, to, getOwnerKey(ctx));
     }),
+    history: publicProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => listExpenseHistory(1, input.id, getOwnerKey(ctx))),
     create: publicProcedure
       .input(z.object({
         title: z.string().trim().min(1).max(160),

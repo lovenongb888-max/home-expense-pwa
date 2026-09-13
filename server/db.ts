@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { expenseCategories, expenses, InsertExpense, InsertExpenseCategory, InsertUser, users } from "../drizzle/schema";
+import { expenseCategories, expenseHistory, expenses, InsertExpense, InsertExpenseCategory, InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -131,6 +131,9 @@ export async function createExpense(data: InsertExpense) {
 export async function updateExpense(userId: number, expenseId: number, ownerKey: string, data: Partial<InsertExpense>) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
+  const previous = await db.select().from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId))).limit(1);
+  if (!previous[0]) return undefined;
+  await db.insert(expenseHistory).values({ userId, ownerKey, expenseId, action: "updated", snapshot: JSON.stringify(previous[0]) });
   await db.update(expenses).set(data).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId)));
   const updated = await db.select().from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId))).limit(1);
   return updated[0];
@@ -139,7 +142,18 @@ export async function updateExpense(userId: number, expenseId: number, ownerKey:
 export async function deleteExpense(userId: number, expenseId: number, ownerKey = "legacy") {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
+  const previous = await db.select().from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId))).limit(1);
+  if (!previous[0]) return;
+  await db.insert(expenseHistory).values({ userId, ownerKey, expenseId, action: "deleted", snapshot: JSON.stringify(previous[0]) });
   await db.delete(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.id, expenseId)));
+}
+
+export async function listExpenseHistory(userId: number, expenseId: number, ownerKey = "legacy") {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(expenseHistory)
+    .where(and(eq(expenseHistory.userId, userId), eq(expenseHistory.ownerKey, ownerKey), eq(expenseHistory.expenseId, expenseId)))
+    .orderBy(desc(expenseHistory.changedAt), desc(expenseHistory.id));
 }
 
 export async function getExpenseStats(userId: number, from: Date, to: Date, ownerKey = "legacy") {

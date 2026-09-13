@@ -38,9 +38,21 @@ export const expenses = mysqlTable("expenses", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const expenseHistory = mysqlTable("expenseHistory", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  ownerKey: varchar("ownerKey", { length: 64 }).notNull().default("legacy"),
+  expenseId: int("expenseId").notNull(),
+  action: mysqlEnum("action", ["updated", "deleted"]).notNull(),
+  snapshot: text("snapshot").notNull(),
+  changedAt: timestamp("changedAt").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type ExpenseCategory = typeof expenseCategories.$inferSelect;
 export type InsertExpenseCategory = typeof expenseCategories.$inferInsert;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = typeof expenses.$inferInsert;
+export type ExpenseHistory = typeof expenseHistory.$inferSelect;
+export type InsertExpenseHistory = typeof expenseHistory.$inferInsert;

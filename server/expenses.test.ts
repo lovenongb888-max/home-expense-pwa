@@ -72,4 +72,10 @@ describe("expense router validation", () => {
       receiptUrl: null,
     })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("rejects invalid expense history ids", async () => {
+    const caller = appRouter.createCaller(createContext());
+
+    await expect(caller.expenses.history({ id: 0 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
 });
