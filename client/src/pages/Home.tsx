@@ -133,13 +133,13 @@ function exportExpenseSummary(expenses: Array<{ title: string; amount: string | 
   context.fillStyle = "#2F6F68";
   context.fillRect(0, 0, width, 18);
   context.fillStyle = "#242C2A";
-  context.font = "600 42px 'Noto Sans Thai', Arial, sans-serif";
+  context.font = "600 42px 'Mali', Arial, sans-serif";
   context.fillText("สรุปรายจ่าย", 74, 92);
   context.fillStyle = "#77817C";
-  context.font = "24px 'Noto Sans Thai', Arial, sans-serif";
+  context.font = "24px 'Mali', Arial, sans-serif";
   context.fillText(`เดือน ${monthLabel.format(new Date(period.year, period.month - 1, 1))}`, 76, 137);
   context.fillStyle = "#2F6F68";
-  context.font = "700 23px 'Noto Sans Thai', Arial, sans-serif";
+  context.font = "700 23px 'Mali', Arial, sans-serif";
   context.fillText("รายการ", 76, headerHeight - 30);
   context.textAlign = "right";
   context.fillText("จำนวนเงิน", width - 76, headerHeight - 30);
@@ -151,14 +151,14 @@ function exportExpenseSummary(expenses: Array<{ title: string; amount: string | 
   context.lineTo(width - 76, headerHeight - 8);
   context.stroke();
 
-  context.font = "500 25px 'Noto Sans Thai', Arial, sans-serif";
+  context.font = "500 25px 'Mali', Arial, sans-serif";
   expenses.forEach((expense, index) => {
     const y = headerHeight + index * rowHeight + 46;
     context.fillStyle = "#242C2A";
     context.fillText(expense.title.slice(0, 64), 76, y);
     context.textAlign = "right";
     context.fillStyle = "#344540";
-    context.font = "600 25px 'Noto Sans Thai', Arial, sans-serif";
+    context.font = "600 25px 'Mitr', Arial, sans-serif";
     context.fillText(formatBaht(expense.amount), width - 76, y);
     context.textAlign = "left";
     context.strokeStyle = "#E7E8E2";
@@ -167,7 +167,7 @@ function exportExpenseSummary(expenses: Array<{ title: string; amount: string | 
     context.moveTo(76, y + 27);
     context.lineTo(width - 76, y + 27);
     context.stroke();
-    context.font = "500 25px 'Noto Sans Thai', Arial, sans-serif";
+    context.font = "500 25px 'Mali', Arial, sans-serif";
   });
   if (expenses.length === 0) {
     context.fillStyle = "#8C908B";
@@ -180,11 +180,11 @@ function exportExpenseSummary(expenses: Array<{ title: string; amount: string | 
   context.roundRect(56, totalY - 45, width - 112, 92, 22);
   context.fill();
   context.fillStyle = "#31534D";
-  context.font = "700 27px 'Noto Sans Thai', Arial, sans-serif";
+  context.font = "700 27px 'Mali', Arial, sans-serif";
   context.fillText("ยอดรวมทั้งหมด", 88, totalY + 10);
   context.textAlign = "right";
   context.fillStyle = "#2F6F68";
-  context.font = "700 34px 'Noto Sans Thai', Arial, sans-serif";
+  context.font = "700 34px 'Mitr', Arial, sans-serif";
   context.fillText(formatBaht(total), width - 88, totalY + 12);
   context.textAlign = "left";
 
