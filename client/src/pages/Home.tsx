@@ -35,6 +35,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useTheme, type FontSize, type FontStyle } from "@/contexts/ThemeContext";
 
 const iconMap: Record<string, LucideIcon> = {
   utensils: Utensils,
@@ -209,6 +210,8 @@ export default function Home() {
   const [codeStatus, setCodeStatus] = useState<"idle" | "scanning" | "done">("idle");
   const [newCategory, setNewCategory] = useState("");
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isFontSettingsOpen, setFontSettingsOpen] = useState(false);
+  const { fontSize, fontStyle, setFontSize, setFontStyle } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
@@ -438,13 +441,25 @@ export default function Home() {
     toast.success(`เลือก ${code.format} เป็นเลขอ้างอิงแล้ว`);
   };
 
+  const updateFontSize = (size: FontSize) => {
+    setFontSize(size);
+    toast.success(`ปรับขนาดตัวอักษรเป็น${size === "small" ? "เล็ก" : size === "large" ? "ใหญ่" : "มาตรฐาน"}แล้ว`);
+  };
+
+  const updateFontStyle = (style: FontStyle) => {
+    setFontStyle(style);
+    toast.success(`ใช้ธีมฟอนต์${style === "cute" ? "น่ารัก" : "ทางการ"}แล้ว`);
+  };
+
   return (
     <div className="min-h-[100dvh] bg-[#F7F5EF] text-[#242C2A] -m-4 md:-m-6">
       <div className="max-w-[1440px] mx-auto px-5 py-5 md:px-10 md:py-8">
         <header className="flex items-center justify-between gap-4 mb-7">
           <div className="flex items-center gap-3"><div className="h-11 w-11 rounded-2xl bg-[#2F6F68] text-white flex items-center justify-center shadow-lg shadow-[#2F6F68]/15"><WalletCards className="h-5 w-5" /></div><div><p className="font-display text-xl font-semibold leading-none">บ้านเรา</p><p className="text-[11px] tracking-[0.18em] text-[#8C908B] uppercase mt-1">home expenses</p></div></div>
-          <div className="flex items-center gap-2"><Button variant="outline" disabled={expensesQuery.isLoading} onClick={() => { try { exportExpenseSummary(expenses, period); toast.success("ดาวน์โหลดสรุปรายจ่ายเป็น JPG แล้ว"); } catch { toast.error("สร้างไฟล์ JPG ไม่สำเร็จ"); } }} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Download className="h-4 w-4 mr-2" /><span className="hidden sm:inline">ส่งออก JPG</span></Button><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><div className="h-10 w-10 rounded-full bg-[#D7E7DE] flex items-center justify-center text-[#2F6F68] font-semibold"><WalletCards className="h-5 w-5" /></div></div>
+          <div className="flex items-center gap-2"><Button variant="outline" disabled={expensesQuery.isLoading} onClick={() => { try { exportExpenseSummary(expenses, period); toast.success("ดาวน์โหลดสรุปรายจ่ายเป็น JPG แล้ว"); } catch { toast.error("สร้างไฟล์ JPG ไม่สำเร็จ"); } }} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Download className="h-4 w-4 mr-2" /><span className="hidden sm:inline">ส่งออก JPG</span></Button><Button variant="outline" onClick={() => setFontSettingsOpen(value => !value)} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Settings2 className="h-4 w-4 mr-2" /><span className="hidden sm:inline">รูปแบบตัวอักษร</span></Button><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><div className="h-10 w-10 rounded-full bg-[#D7E7DE] flex items-center justify-center text-[#2F6F68] font-semibold"><WalletCards className="h-5 w-5" /></div></div>
         </header>
+
+        {isFontSettingsOpen && <section className="mb-5 rounded-[24px] bg-white border border-[#E5E3DC] p-5 shadow-sm"><div className="flex items-center justify-between gap-3 mb-4"><div><p className="eyebrow">ตั้งค่าการแสดงผล</p><h2 className="font-display text-xl mt-1">ปรับรูปแบบตัวอักษร</h2></div><Button variant="ghost" onClick={() => setFontSettingsOpen(false)} className="rounded-xl">ปิด</Button></div><div className="grid md:grid-cols-2 gap-4"><div><p className="field-label">ขนาดตัวอักษร</p><div className="grid grid-cols-3 gap-2">{([['small', 'เล็ก'], ['medium', 'มาตรฐาน'], ['large', 'ใหญ่']] as const).map(([value, label]) => <Button key={value} variant="outline" onClick={() => updateFontSize(value)} className={`rounded-xl ${fontSize === value ? "bg-[#E7EFE9] border-[#7BA99D] text-[#2F6F68]" : "bg-white"}`}>{label}</Button>)}</div></div><div><p className="field-label">ธีมฟอนต์</p><div className="grid grid-cols-2 gap-2">{([['cute', 'น่ารัก'], ['formal', 'ทางการ']] as const).map(([value, label]) => <Button key={value} variant="outline" onClick={() => updateFontStyle(value)} className={`rounded-xl ${fontStyle === value ? "bg-[#E7EFE9] border-[#7BA99D] text-[#2F6F68]" : "bg-white"}`}>{label}</Button>)}</div></div></div><p className="text-xs text-[#8C908B] mt-4">การตั้งค่านี้มีผลกับข้อความในแอป แบบฟอร์ม onboarding และการแจ้งเตือน</p></section>}
 
         <section className="grid lg:grid-cols-[1.45fr_0.8fr] gap-5 items-stretch">
           <div className="rounded-[28px] bg-[#2F6F68] text-white p-6 md:p-8 relative overflow-hidden min-h-[250px] flex flex-col justify-between shadow-xl shadow-[#2F6F68]/15">
@@ -467,6 +482,7 @@ export default function Home() {
           </aside>
         </div>
         <div className="mt-6 flex sm:hidden justify-center"><Button variant="ghost" onClick={installApp} className="text-[#5E6A65] rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอปลงมือถือ</Button></div>
+        <section className="mt-5 rounded-[24px] bg-[#E7EFE9] border border-[#D6E2D9] p-5"><p className="eyebrow text-[#648078]">ปรับให้เป็นสไตล์คุณ</p><h2 className="font-display text-xl mt-1">บ้านเราอ่านง่ายในแบบที่ชอบ</h2><p className="text-sm text-[#61726B] mt-1">เลือกขนาดและธีมฟอนต์ได้จากปุ่ม “รูปแบบตัวอักษร” ด้านบน</p></section>
       </div>
 
       {isExpenseOpen && (

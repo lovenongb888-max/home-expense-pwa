@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { readFontSize, readFontStyle } from "@/lib/font-settings";
 
 type Theme = "light" | "dark";
+export type FontSize = "small" | "medium" | "large";
+export type FontStyle = "cute" | "formal";
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme?: () => void;
   switchable: boolean;
+  fontSize: FontSize;
+  fontStyle: FontStyle;
+  setFontSize: (size: FontSize) => void;
+  setFontStyle: (style: FontStyle) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -28,6 +35,8 @@ export function ThemeProvider({
     }
     return defaultTheme;
   });
+  const [fontSize, setFontSize] = useState<FontSize>(() => readFontSize(localStorage.getItem("font-size")));
+  const [fontStyle, setFontStyle] = useState<FontStyle>(() => readFontStyle(localStorage.getItem("font-style")));
 
   useEffect(() => {
     const root = document.documentElement;
@@ -42,6 +51,14 @@ export function ThemeProvider({
     }
   }, [theme, switchable]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.fontSize = fontSize;
+    root.dataset.fontStyle = fontStyle;
+    localStorage.setItem("font-size", fontSize);
+    localStorage.setItem("font-style", fontStyle);
+  }, [fontSize, fontStyle]);
+
   const toggleTheme = switchable
     ? () => {
         setTheme(prev => (prev === "light" ? "dark" : "light"));
@@ -49,7 +66,7 @@ export function ThemeProvider({
     : undefined;
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, switchable, fontSize, fontStyle, setFontSize, setFontStyle }}>
       {children}
     </ThemeContext.Provider>
   );
