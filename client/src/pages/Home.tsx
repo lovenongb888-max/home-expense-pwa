@@ -197,6 +197,7 @@ function exportExpenseSummary(expenses: Array<{ title: string; amount: string | 
 
 export default function Home() {
   const today = new Date();
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const [period, setPeriod] = useState({ year: today.getFullYear(), month: today.getMonth() + 1 });
   const [isExpenseOpen, setExpenseOpen] = useState(false);
   const [isCategoryOpen, setCategoryOpen] = useState(false);
@@ -227,6 +228,17 @@ export default function Home() {
   const deleteExpense = trpc.expenses.delete.useMutation();
   const createCategory = trpc.categories.create.useMutation();
   const deleteCategory = trpc.categories.delete.useMutation();
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const onInstall = (event: Event) => {
@@ -456,7 +468,7 @@ export default function Home() {
       <div className="max-w-[1440px] mx-auto px-5 py-5 md:px-10 md:py-8">
         <header className="flex items-center justify-between gap-4 mb-7">
           <div className="flex items-center gap-3"><div className="h-11 w-11 rounded-2xl bg-[#2F6F68] text-white flex items-center justify-center shadow-lg shadow-[#2F6F68]/15"><WalletCards className="h-5 w-5" /></div><div><p className="font-display text-xl font-semibold leading-none">บ้านเรา</p><p className="text-[11px] tracking-[0.18em] text-[#8C908B] uppercase mt-1">home expenses</p></div></div>
-          <div className="flex items-center gap-2"><Button variant="outline" disabled={expensesQuery.isLoading} onClick={() => { try { exportExpenseSummary(expenses, period); toast.success("ดาวน์โหลดสรุปรายจ่ายเป็น JPG แล้ว"); } catch { toast.error("สร้างไฟล์ JPG ไม่สำเร็จ"); } }} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Download className="h-4 w-4 mr-2" /><span className="hidden sm:inline">ส่งออก JPG</span></Button><Button variant="outline" onClick={() => setFontSettingsOpen(value => !value)} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Settings2 className="h-4 w-4 mr-2" /><span className="hidden sm:inline">รูปแบบตัวอักษร</span></Button><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><div className="h-10 w-10 rounded-full bg-[#D7E7DE] flex items-center justify-center text-[#2F6F68] font-semibold"><WalletCards className="h-5 w-5" /></div></div>
+          <div className="flex items-center gap-2"><span className={`hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold ${isOnline ? "bg-[#E7EFE9] text-[#2F6F68]" : "bg-[#FFF0D2] text-[#9A6B20]"}`}><span className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#4E9A78]" : "bg-[#D79B3D]"}`} />{isOnline ? "ออนไลน์" : "ออฟไลน์"}</span><Button variant="outline" disabled={expensesQuery.isLoading} onClick={() => { try { exportExpenseSummary(expenses, period); toast.success("ดาวน์โหลดสรุปรายจ่ายเป็น JPG แล้ว"); } catch { toast.error("สร้างไฟล์ JPG ไม่สำเร็จ"); } }} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Download className="h-4 w-4 mr-2" /><span className="hidden sm:inline">ส่งออก JPG</span></Button><Button variant="outline" onClick={() => setFontSettingsOpen(value => !value)} className="bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl"><Settings2 className="h-4 w-4 mr-2" /><span className="hidden sm:inline">รูปแบบตัวอักษร</span></Button><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><div className="h-10 w-10 rounded-full bg-[#D7E7DE] flex items-center justify-center text-[#2F6F68] font-semibold"><WalletCards className="h-5 w-5" /></div></div>
         </header>
 
         {isFontSettingsOpen && <section className="mb-5 rounded-[24px] bg-white border border-[#E5E3DC] p-5 shadow-sm"><div className="flex items-center justify-between gap-3 mb-4"><div><p className="eyebrow">ตั้งค่าการแสดงผล</p><h2 className="font-display text-xl mt-1">ปรับรูปแบบตัวอักษร</h2></div><Button variant="ghost" onClick={() => setFontSettingsOpen(false)} className="rounded-xl">ปิด</Button></div><div className="grid md:grid-cols-2 gap-4"><div><p className="field-label">ขนาดตัวอักษร</p><div className="grid grid-cols-3 gap-2">{([['small', 'เล็ก'], ['medium', 'มาตรฐาน'], ['large', 'ใหญ่']] as const).map(([value, label]) => <Button key={value} variant="outline" onClick={() => updateFontSize(value)} className={`rounded-xl ${fontSize === value ? "bg-[#E7EFE9] border-[#7BA99D] text-[#2F6F68]" : "bg-white"}`}>{label}</Button>)}</div></div><div><p className="field-label">ธีมฟอนต์</p><div className="grid grid-cols-2 gap-2">{([['cute', 'น่ารัก'], ['formal', 'ทางการ']] as const).map(([value, label]) => <Button key={value} variant="outline" onClick={() => updateFontStyle(value)} className={`rounded-xl ${fontStyle === value ? "bg-[#E7EFE9] border-[#7BA99D] text-[#2F6F68]" : "bg-white"}`}>{label}</Button>)}</div></div></div><p className="text-xs text-[#8C908B] mt-4">การตั้งค่านี้มีผลกับข้อความในแอป แบบฟอร์ม onboarding และการแจ้งเตือน</p></section>}
@@ -501,7 +513,7 @@ export default function Home() {
               <div><label className="field-label">รายละเอียดเพิ่มเติม <span className="normal-case font-normal text-[#A0A39E]">(QR/Barcode จะเติมให้อัตโนมัติ)</span></label><Textarea value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="บันทึกช่วยจำสั้น ๆ" className="rounded-xl bg-white resize-none" rows={3} /></div>
               <div>
                 <label className="field-label">บิล / ใบเสร็จ</label>
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => handleReceiptSelected(e.target.files?.[0] ?? null)} />
+                <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => handleReceiptSelected(e.target.files?.[0] ?? null)} />
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full border border-dashed border-[#B8C8BE] bg-[#F2F6F1] rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-[#EAF2EB] transition-colors">
                   <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-[#2F6F68]">{ocrStatus === "reading" || codeStatus === "scanning" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}</div>
                   <div className="min-w-0"><p className="text-sm font-medium truncate">{draft.file?.name ?? "แนบรูปบิลหรือ PDF"}</p><p className="text-xs text-[#8C908B] mt-1">{ocrStatus === "reading" ? "กำลังอ่านทุกหน้า พร้อมหายอดที่ต้องชำระจริง..." : codeStatus === "scanning" ? "กำลังตรวจหา QR Code และ Barcode..." : ocrStatus === "done" ? "อ่านข้อมูลแล้ว กรุณาตรวจสอบก่อนบันทึก" : "รองรับ JPG, PNG, WebP และ PDF ไม่เกิน 6 MB"}</p></div>
