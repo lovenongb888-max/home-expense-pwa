@@ -109,10 +109,6 @@
   .font-numeric { font-family: "Mitr", "Mali", "Noto Sans Thai", sans-serif; font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.025em; }
   .font-cute { font-family: "Mali", "Noto Sans Thai", system-ui, sans-serif; }
   .font-formal { font-family: "Mitr", "Noto Sans Thai", system-ui, sans-serif; }
-  [data-font-size="small"] body { font-size: 14px; }
-  [data-font-size="large"] body { font-size: 18px; }
-  [data-font-style="formal"] body, [data-font-style="formal"] button, [data-font-style="formal"] input, [data-font-style="formal"] textarea, [data-font-style="formal"] select { font-family: "Mitr", "Noto Sans Thai", system-ui, sans-serif; }
-  [data-font-style="formal"] .font-display { font-family: "Mitr", "Noto Sans Thai", system-ui, sans-serif; font-weight: 600; }
   @media (min-width: 640px) { .container { padding-left: 1.5rem; padding-right: 1.5rem; } }
   @media (min-width: 1024px) { .container { padding-left: 2rem; padding-right: 2rem; max-width: 1280px; } }
   .android-shell body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
