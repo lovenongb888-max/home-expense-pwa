@@ -18,4 +18,10 @@ describe("mobile app assets", () => {
     expect(existsSync(resolve(projectRoot, "android/app/src/main/res/drawable/splash.png"))).toBe(true);
     expect(readFileSync(resolve(projectRoot, "android/app/src/main/res/values/colors.xml"), "utf8")).toContain("#2F6F68");
   });
+
+  it("opts out of Android 15 edge-to-edge content overlap", () => {
+    const theme = readFileSync(resolve(projectRoot, "android/app/src/main/res/values-v35/styles.xml"), "utf8");
+    expect(theme).toContain("windowOptOutEdgeToEdgeEnforcement");
+    expect(readFileSync(resolve(projectRoot, "client/src/index.css"), "utf8")).toContain("safe-area-inset-top");
+  });
 });
