@@ -552,12 +552,12 @@ export default function Home() {
 
       {isExpenseOpen && (
         <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5">
-          <div className="w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto">
+          <div className="expense-modal w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto">
             <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 py-4 border-b border-[#ECE9E1] flex items-center justify-between">
               <div><p className="eyebrow">{editingExpenseId ? "แก้ไขรายการรายจ่าย" : "บันทึกรายการใหม่"}</p><h2 className="font-display text-2xl mt-1">{editingExpenseId ? "แก้ไขรายจ่าย" : "เพิ่มรายจ่าย"}</h2></div>
               <Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl"><X className="h-5 w-5" /></Button>
             </div>
-            <form onSubmit={submitExpense} className="p-5 space-y-4">
+            <form onSubmit={submitExpense} className="expense-form p-5 space-y-4">
               <div><label className="field-label">รายการ</label><Input autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="เช่น ซื้อของเข้าบ้าน" className="h-12 rounded-xl bg-white" /></div>
               <div><label className="field-label">ชื่อผู้รับเงิน <span className="normal-case font-normal text-[#A0A39E]">(AI จะช่วยอ่านจากบิล)</span></label><Input value={draft.recipientName} onChange={e => setDraft({ ...draft, recipientName: e.target.value })} placeholder="เช่น AIS หรือบริษัท สยามมาร์ท" className="h-12 rounded-xl bg-white" /></div>
               <div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="font-numeric h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div></div>
