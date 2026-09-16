@@ -5,12 +5,12 @@ import { trpc } from "@/lib/trpc";
 
 const appVersion = "1.0.0";
 const androidVersion = "1.0";
-const releaseDate = "15 กันยายน 2569";
+const releaseDate = "16 กันยายน 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null };
 
 const updateHistory = [
-  { version: "1.0.0", date: "15 กันยายน 2569", title: "เปิดตัวบ้านเรา", items: ["ส่งออกสรุปรายจ่ายเป็น JPG", "อ่านบิล PDF/JPG และ QR Code/Barcode", "แก้ไข ลบ ดูประวัติ และคิวอัปโหลดออฟไลน์", "รองรับ Android จอเล็ก แท็บเล็ต และแนวนอน"] },
+  { version: "1.0.0", date: "16 กันยายน 2569", title: "เปิดตัวบ้านเรา", items: ["ส่งออกสรุปรายจ่ายเป็น JPG", "อ่านบิล PDF/JPG และ QR Code/Barcode", "แก้ไข ลบ ดูประวัติ และคิวอัปโหลดออฟไลน์", "รองรับ Android จอเล็ก แท็บเล็ต และแนวนอน"] },
   { version: "0.9.0", date: "10 กันยายน 2569", title: "ปรับปรุงการอ่านบิล", items: ["เพิ่มการอ่านบิลค่าเน็ตบ้าน AIS", "เติมเลขอ้างอิงและหมายเหตุจาก QR/Barcode อัตโนมัติ"] },
   { version: "0.8.0", date: "5 กันยายน 2569", title: "เริ่มต้นระบบจัดการรายจ่าย", items: ["เพิ่มรายการรายจ่ายและหมวดหมู่", "ดูยอดรวมและสัดส่วนรายจ่ายรายเดือน"] },
 ];
