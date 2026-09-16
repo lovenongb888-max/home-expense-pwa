@@ -48,6 +48,21 @@ export const expenseHistory = mysqlTable("expenseHistory", {
   changedAt: timestamp("changedAt").defaultNow().notNull(),
 });
 
+export const appDownloadEvents = mysqlTable("appDownloadEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  appVersion: varchar("appVersion", { length: 32 }).notNull(),
+  platform: varchar("platform", { length: 32 }).notNull().default("web"),
+  downloadedAt: timestamp("downloadedAt").defaultNow().notNull(),
+});
+
+export const appVersionSessions = mysqlTable("appVersionSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: varchar("clientId", { length: 64 }).notNull().unique(),
+  appVersion: varchar("appVersion", { length: 32 }).notNull(),
+  platform: varchar("platform", { length: 32 }).notNull().default("web"),
+  lastSeen: timestamp("lastSeen").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type ExpenseCategory = typeof expenseCategories.$inferSelect;
@@ -56,3 +71,7 @@ export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = typeof expenses.$inferInsert;
 export type ExpenseHistory = typeof expenseHistory.$inferSelect;
 export type InsertExpenseHistory = typeof expenseHistory.$inferInsert;
+export type AppDownloadEvent = typeof appDownloadEvents.$inferSelect;
+export type InsertAppDownloadEvent = typeof appDownloadEvents.$inferInsert;
+export type AppVersionSession = typeof appVersionSessions.$inferSelect;
+export type InsertAppVersionSession = typeof appVersionSessions.$inferInsert;

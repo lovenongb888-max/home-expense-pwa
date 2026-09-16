@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { expenseCategories, expenseHistory, expenses, InsertExpense, InsertExpenseCategory, InsertUser, users } from "../drizzle/schema";
+import { appDownloadEvents, appVersionSessions, expenseCategories, expenseHistory, expenses, InsertExpense, InsertExpenseCategory, InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -164,4 +164,26 @@ export async function getExpenseStats(userId: number, from: Date, to: Date, owne
     .from(expenses)
     .where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), gte(expenses.spentAt, from), lt(expenses.spentAt, to)));
   return { total: String(result[0]?.total ?? "0"), count: Number(result[0]?.count ?? 0) };
+}
+
+export async function recordAppDownload(appVersion: string, platform: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(appDownloadEvents).values({ appVersion, platform });
+}
+
+export async function getAppDownloadStats() {
+  const db = await getDb();
+  if (!db) return { totalDownloads: 0, byVersion: [] as Array<{ version: string; downloads: number }> };
+  const total = await db.select({ count: sql<number>`COUNT(*)` }).from(appDownloadEvents);
+  const byVersion = await db.select({ version: appDownloadEvents.appVersion, downloads: sql<number>`COUNT(*)` }).from(appDownloadEvents).groupBy(appDownloadEvents.appVersion).orderBy(desc(sql`COUNT(*)`));
+  const activeSince = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const activeByVersion = await db.select({ version: appVersionSessions.appVersion, users: sql<number>`COUNT(*)` }).from(appVersionSessions).where(gte(appVersionSessions.lastSeen, activeSince)).groupBy(appVersionSessions.appVersion).orderBy(desc(sql`COUNT(*)`));
+  return { totalDownloads: Number(total[0]?.count ?? 0), byVersion: byVersion.map(row => ({ version: row.version, downloads: Number(row.downloads) })), activeByVersion: activeByVersion.map(row => ({ version: row.version, users: Number(row.users) })) };
+}
+
+export async function recordVersionUsage(clientId: string, appVersion: string, platform: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(appVersionSessions).values({ clientId, appVersion, platform }).onDuplicateKeyUpdate({ set: { appVersion, platform, lastSeen: new Date() } });
 }

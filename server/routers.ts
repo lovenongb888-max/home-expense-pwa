@@ -6,7 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { createCategory, createExpense, deleteCategory, deleteExpense, getCategories, getExpenseStats, listExpenseHistory, listExpenses, updateExpense } from "./db";
+import { createCategory, createExpense, deleteCategory, deleteExpense, getAppDownloadStats, getCategories, getExpenseStats, listExpenseHistory, listExpenses, recordAppDownload, recordVersionUsage, updateExpense } from "./db";
 import { storagePut } from "./storage";
 
 const monthInput = z.object({ year: z.number().int().min(2000).max(2200), month: z.number().int().min(1).max(12) });
@@ -56,6 +56,11 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+  appStats: router({
+    recordDownload: publicProcedure.input(z.object({ appVersion: z.string().regex(/^\d+\.\d+\.\d+$/), platform: z.string().trim().min(1).max(32).default("web") })).mutation(({ input }) => recordAppDownload(input.appVersion, input.platform)),
+    reportVersion: publicProcedure.input(z.object({ clientId: z.string().regex(/^[a-f0-9-]{20,64}$/), appVersion: z.string().regex(/^\d+\.\d+\.\d+$/), platform: z.string().trim().min(1).max(32).default("web") })).mutation(({ input }) => recordVersionUsage(input.clientId, input.appVersion, input.platform)),
+    summary: publicProcedure.query(() => getAppDownloadStats()),
   }),
   categories: router({
     list: publicProcedure.query(({ ctx }) => getCategories(1, getOwnerKey(ctx))),
