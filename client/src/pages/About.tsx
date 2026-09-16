@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, CheckCircle2, ChevronDown, Download, Home, Info, Mail, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronDown, Download, Home, Info, Mail, Share2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Link } from "wouter";
 
 const appVersion = "1.0.0";
@@ -18,6 +18,9 @@ export default function About() {
   const [versionStatus, setVersionStatus] = useState<"idle" | "checking" | "latest" | "available" | "error">("idle");
   const [latestInfo, setLatestInfo] = useState<VersionInfo | null>(null);
   const [expandedVersion, setExpandedVersion] = useState(appVersion);
+  const [downloadHistory, setDownloadHistory] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("apk-download-history") ?? "[]") as string[]; } catch { return []; }
+  });
 
   const checkForUpdates = async () => {
     setVersionStatus("checking");
@@ -30,6 +33,30 @@ export default function About() {
     } catch {
       setVersionStatus("error");
     }
+  };
+
+  const recordDownload = () => {
+    const next = [new Date().toLocaleString("th-TH"), ...downloadHistory].slice(0, 5);
+    setDownloadHistory(next);
+    localStorage.setItem("apk-download-history", JSON.stringify(next));
+  };
+
+  const shareDownloadLink = async () => {
+    let url = latestInfo?.downloadUrl;
+    if (!url) {
+      try {
+        const response = await fetch(`/app-version.json?share=${Date.now()}`, { cache: "no-store" });
+        const info = await response.json() as VersionInfo;
+        setLatestInfo(info);
+        url = info.downloadUrl;
+      } catch { /* handled by the fallback message below */ }
+    }
+    if (!url) return;
+    const shareData = { title: "บ้านเรา | Home Expenses", text: `ดาวน์โหลดแอปบ้านเรา เวอร์ชัน ${appVersion}`, url };
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else { await navigator.clipboard.writeText(url); window.alert("คัดลอกลิงก์ดาวน์โหลดแล้ว"); }
+    } catch { /* user cancelled share */ }
   };
 
   return (
@@ -48,10 +75,12 @@ export default function About() {
         <section className="mt-5 rounded-[26px] border border-[#E5E3DC] bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-[#B18A36]" /><h2 className="font-display text-xl">ตรวจสอบเวอร์ชันใหม่</h2></div><button type="button" onClick={checkForUpdates} disabled={versionStatus === "checking"} className="rounded-xl bg-[#2F6F68] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#275E58] disabled:opacity-60">{versionStatus === "checking" ? "กำลังตรวจสอบ..." : "ตรวจสอบตอนนี้"}</button></div>
           <p className="mt-3 text-sm text-[#777D78]">ตรวจจากข้อมูลเวอร์ชันล่าสุดของแอป โดยไม่ต้องออกจากหน้านี้</p>
-          {versionStatus === "latest" && <p className="mt-4 rounded-xl bg-[#E7EFE9] px-3 py-2 text-sm text-[#2F6F68]">คุณใช้เวอร์ชันล่าสุดแล้ว ({latestInfo?.latestVersion})</p>}
-          {versionStatus === "available" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#FFF4D9] px-3 py-2 text-sm text-[#8B6C2B]"><span>มีเวอร์ชันใหม่ {latestInfo?.latestVersion}</span>{latestInfo?.downloadUrl ? <a href={latestInfo.downloadUrl} download className="inline-flex items-center gap-2 rounded-lg bg-[#2F6F68] px-3 py-2 text-xs font-medium text-white hover:bg-[#275E58]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด APK</a> : <span className="text-xs">รอลิงก์ดาวน์โหลดจากผู้ดูแล</span>}</div>}
+          {versionStatus === "latest" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#E7EFE9] px-3 py-2 text-sm text-[#2F6F68]"><span>คุณใช้เวอร์ชันล่าสุดแล้ว ({latestInfo?.latestVersion})</span>{latestInfo?.downloadUrl && <div className="flex gap-2"><a href={latestInfo.downloadUrl} download onClick={recordDownload} className="inline-flex items-center gap-2 rounded-lg bg-[#2F6F68] px-3 py-2 text-xs font-medium text-white hover:bg-[#275E58]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด APK</a><button type="button" onClick={shareDownloadLink} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-[#2F6F68] hover:bg-[#F7F5EF]"><Share2 className="h-3.5 w-3.5" />แชร์</button></div>}</div>}
+          {versionStatus === "available" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#FFF4D9] px-3 py-2 text-sm text-[#8B6C2B]"><span>มีเวอร์ชันใหม่ {latestInfo?.latestVersion}</span>{latestInfo?.downloadUrl ? <div className="flex gap-2"><a href={latestInfo.downloadUrl} download onClick={recordDownload} className="inline-flex items-center gap-2 rounded-lg bg-[#2F6F68] px-3 py-2 text-xs font-medium text-white hover:bg-[#275E58]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด APK</a><button type="button" onClick={shareDownloadLink} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-[#2F6F68] hover:bg-[#FFF9E9]"><Share2 className="h-3.5 w-3.5" />แชร์</button></div> : <span className="text-xs">รอลิงก์ดาวน์โหลดจากผู้ดูแล</span>}</div>}
           {versionStatus === "error" && <p className="mt-4 rounded-xl bg-[#FFF0EF] px-3 py-2 text-sm text-[#9B5550]">ตรวจสอบไม่ได้ในขณะนี้ กรุณาลองใหม่เมื่อออนไลน์</p>}
         </section>
+
+        <section className="mt-5 rounded-[26px] border border-[#E5E3DC] bg-white p-5 shadow-sm sm:p-7"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl">ประวัติการดาวน์โหลด APK</h2><span className="text-xs text-[#8C908B]">เก็บไว้ในอุปกรณ์นี้</span></div>{downloadHistory.length ? <ul className="mt-4 space-y-2 text-sm text-[#52645D]">{downloadHistory.map((item, index) => <li key={`${item}-${index}`} className="rounded-xl bg-[#FCFBF7] px-3 py-2">ดาวน์โหลดเมื่อ {item}</li>)}</ul> : <p className="mt-3 text-sm text-[#8C908B]">ยังไม่มีประวัติการดาวน์โหลด</p>}</section>
 
         <section className="mt-5 rounded-[26px] border border-[#E5E3DC] bg-white p-5 shadow-sm sm:p-7"><div className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-[#B18A36]" /><h2 className="font-display text-xl">ประวัติการอัปเดต</h2></div><div className="mt-5 space-y-3">{updateHistory.map(update => <div key={update.version} className="rounded-2xl border border-[#ECE9E1] bg-[#FCFBF7] p-4"><button type="button" onClick={() => setExpandedVersion(expandedVersion === update.version ? "" : update.version)} className="flex w-full items-center justify-between gap-3 text-left"><span><span className="font-numeric font-semibold text-[#2F6F68]">v{update.version}</span><span className="ml-2 text-xs text-[#8C908B]">{update.date}</span><span className="block mt-1 font-medium">{update.title}</span></span><ChevronDown className={`h-4 w-4 shrink-0 text-[#71857B] transition-transform ${expandedVersion === update.version ? "rotate-180" : ""}`} /></button>{expandedVersion === update.version && <ul className="mt-3 space-y-2 border-t border-[#ECE9E1] pt-3 text-sm leading-6 text-[#52645D]">{update.items.map(item => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-[#4E9A78]" />{item}</li>)}</ul>}</div>)}</div></section>
 
