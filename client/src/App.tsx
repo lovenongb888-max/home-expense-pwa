@@ -6,9 +6,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import About from "./pages/About";
+import Legal from "./pages/Legal";
+import VersionUpdateNotifier from "./components/VersionUpdateNotifier";
 
 function Router() {
-  return <Switch><Route path="/" component={Home} /><Route path="/about" component={About} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={Home} /><Route path="/about" component={About} /><Route path="/terms" component={Legal} /><Route path="/privacy" component={Legal} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
 }
 
 function App() {
@@ -17,6 +19,7 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
+          <VersionUpdateNotifier />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
