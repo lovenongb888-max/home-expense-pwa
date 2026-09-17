@@ -3,13 +3,14 @@ import { ArrowLeft, CheckCircle2, ChevronDown, Download, Home, Info, Mail, Share
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 
-const appVersion = "1.0.1";
-const androidVersion = "1.0.1";
+const appVersion = "1.0.2";
+const androidVersion = "1.0.2";
 const releaseDate = "16 กันยายน 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null };
 
 const updateHistory = [
+  { version: "1.0.2", date: "17 กันยายน 2569", title: "ปรับประสบการณ์ใช้งาน Android", items: ["ปรับหน้าเพิ่มรายจ่ายเป็น bottom sheet ใช้งานมือเดียวได้สะดวกขึ้น", "ซ่อนปุ่มติดตั้งเมื่อเปิดจาก Android native หรือแอปที่ติดตั้งแล้ว", "เพิ่มข้อความ Home Expenses By Oomyim Pimjai ที่ท้ายหน้า"] },
   { version: "1.0.1", date: "16 กันยายน 2569", title: "ปรับหน้าจอ Android", items: ["ลดระยะขอบและความสูงการ์ดสำหรับจอ 360×800 และ 412×915", "ปรับขนาดยอดเงิน ปุ่ม และรายการล่าสุดให้พอดีกับจอแคบ", "คงเลย์เอาต์แท็บเล็ตและเดสก์ท็อปเดิม"] },
   { version: "1.0.0", date: "16 กันยายน 2569", title: "เปิดตัวบ้านเรา", items: ["ส่งออกสรุปรายจ่ายเป็น JPG", "อ่านบิล PDF/JPG และ QR Code/Barcode", "แก้ไข ลบ ดูประวัติ และคิวอัปโหลดออฟไลน์", "รองรับ Android จอเล็ก แท็บเล็ต และแนวนอน"] },
   { version: "0.9.0", date: "10 กันยายน 2569", title: "ปรับปรุงการอ่านบิล", items: ["เพิ่มการอ่านบิลค่าเน็ตบ้าน AIS", "เติมเลขอ้างอิงและหมายเหตุจาก QR/Barcode อัตโนมัติ"] },

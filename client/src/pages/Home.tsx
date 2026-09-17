@@ -38,6 +38,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
+import { Capacitor } from "@capacitor/core";
 
 const iconMap: Record<string, LucideIcon> = {
   utensils: Utensils,
@@ -221,6 +222,7 @@ export default function Home() {
   const [codeStatus, setCodeStatus] = useState<"idle" | "scanning" | "done">("idle");
   const [newCategory, setNewCategory] = useState("");
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isStandalone, setIsStandalone] = useState(() => typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
@@ -279,8 +281,17 @@ export default function Home() {
       event.preventDefault();
       setInstallPrompt(event as BeforeInstallPromptEvent);
     };
+    const onInstalled = () => { setInstallPrompt(null); setIsStandalone(true); };
+    const displayMode = window.matchMedia?.("(display-mode: standalone)");
+    const onDisplayModeChange = () => setIsStandalone(displayMode?.matches === true);
     window.addEventListener("beforeinstallprompt", onInstall);
-    return () => window.removeEventListener("beforeinstallprompt", onInstall);
+    window.addEventListener("appinstalled", onInstalled);
+    displayMode?.addEventListener?.("change", onDisplayModeChange);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onInstall);
+      window.removeEventListener("appinstalled", onInstalled);
+      displayMode?.removeEventListener?.("change", onDisplayModeChange);
+    };
   }, []);
 
   const categories = categoriesQuery.data ?? [];
@@ -509,7 +520,7 @@ export default function Home() {
       <div className="max-w-[1440px] mx-auto px-3 py-3 sm:px-5 sm:py-5 md:px-10 md:py-8">
         <header className="flex items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-7">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3"><div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-[#2F6F68] text-white flex items-center justify-center shadow-lg shadow-[#2F6F68]/15 shrink-0"><WalletCards className="h-5 w-5" /></div><div className="min-w-0"><p className="font-display text-lg sm:text-xl font-semibold leading-none truncate">บ้านเรา</p><p className="hidden sm:block text-[11px] tracking-[0.18em] text-[#8C908B] uppercase mt-1">home expenses</p></div></div>
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2"><span className={`hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold ${isOnline ? "bg-[#E7EFE9] text-[#2F6F68]" : "bg-[#FFF0D2] text-[#9A6B20]"}`}><span className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#4E9A78]" : "bg-[#D79B3D]"}`} />{isOnline ? "ออนไลน์" : "ออฟไลน์"}</span><Button variant="outline" disabled={expensesQuery.isLoading} onClick={() => { try { exportExpenseSummary(expenses, period); toast.success("ดาวน์โหลดสรุปรายจ่ายเป็น JPG แล้ว"); } catch { toast.error("สร้างไฟล์ JPG ไม่สำเร็จ"); } }} className="h-10 w-10 sm:h-auto sm:w-auto bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl p-0 sm:px-3"><Download className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">ส่งออก JPG</span></Button><Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button><Link href="/about" aria-label="เกี่ยวกับแอป" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D7E7DE] text-[#2F6F68] font-semibold hover:bg-[#CBE1D4]"><WalletCards className="h-5 w-5" /></Link></div>
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2"><span className={`hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold ${isOnline ? "bg-[#E7EFE9] text-[#2F6F68]" : "bg-[#FFF0D2] text-[#9A6B20]"}`}><span className={`h-2 w-2 rounded-full ${isOnline ? "bg-[#4E9A78]" : "bg-[#D79B3D]"}`} />{isOnline ? "ออนไลน์" : "ออฟไลน์"}</span><Button variant="outline" disabled={expensesQuery.isLoading} onClick={() => { try { exportExpenseSummary(expenses, period); toast.success("ดาวน์โหลดสรุปรายจ่ายเป็น JPG แล้ว"); } catch { toast.error("สร้างไฟล์ JPG ไม่สำเร็จ"); } }} className="h-10 w-10 sm:h-auto sm:w-auto bg-white/70 border-[#D9E2DB] text-[#2F6F68] hover:bg-white rounded-xl p-0 sm:px-3"><Download className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">ส่งออก JPG</span></Button>{!Capacitor.isNativePlatform() && !isStandalone && <Button variant="ghost" onClick={installApp} className="hidden sm:flex text-[#5E6A65] hover:bg-white rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอป</Button>}<Link href="/about" aria-label="เกี่ยวกับแอป" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D7E7DE] text-[#2F6F68] font-semibold hover:bg-[#CBE1D4]"><WalletCards className="h-5 w-5" /></Link></div>
         </header>
 
 
@@ -533,13 +544,15 @@ export default function Home() {
             <section className="rounded-[28px] bg-[#FFF4D9] p-5 md:p-6 border border-[#F3E5BF]"><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-xl bg-white/70 flex items-center justify-center text-[#B18A36]"><Settings2 className="h-4 w-4" /></div><div><p className="font-medium">จัดการหมวดหมู่</p><p className="text-xs text-[#927D4D] mt-0.5">เพิ่มหรือลบหัวข้อได้ตามบ้านคุณ</p></div></div><Button variant="outline" onClick={() => setCategoryOpen(value => !value)} className="mt-5 w-full rounded-xl bg-white/60 border-[#EADAAE] text-[#76602B] hover:bg-white">{isCategoryOpen ? "ซ่อนรายการหมวดหมู่" : "เปิดรายการหมวดหมู่"}<ChevronDown className={`h-4 w-4 ml-auto transition-transform ${isCategoryOpen ? "rotate-180" : ""}`} /></Button>{isCategoryOpen && <div className="mt-4 space-y-2"><form onSubmit={submitCategory} className="flex gap-2"><Input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="เช่น ค่าเรียนลูก" className="bg-white/70 border-[#EADAAE] rounded-xl" /><Button type="submit" size="icon" className="rounded-xl shrink-0 bg-[#2F6F68] hover:bg-[#275E58]"><Plus className="h-4 w-4" /></Button></form><div className="space-y-1.5 pt-1">{categories.map(category => <div key={category.id} className="flex items-center justify-between bg-white/45 rounded-xl px-3 py-2 text-sm"><span>{category.name}</span><Button variant="ghost" onClick={() => removeCategory(category.id)} className="h-7 w-7 p-0 text-[#B06B67] hover:bg-[#FFF0EF] rounded-lg"><Trash2 className="h-3.5 w-3.5" /></Button></div>)}</div></div>}</section>
           </aside>
         </div>
-        <div className="mt-6 flex sm:hidden justify-center"><Button variant="ghost" onClick={installApp} className="text-[#5E6A65] rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอปลงมือถือ</Button></div>
+        {!Capacitor.isNativePlatform() && !isStandalone && <div className="mt-6 flex sm:hidden justify-center"><Button variant="ghost" onClick={installApp} className="text-[#5E6A65] rounded-xl"><ArrowDownLeft className="h-4 w-4 mr-2 rotate-[-45deg]" />ติดตั้งแอปลงมือถือ</Button></div>}
+        <footer className="pb-4 pt-5 text-center text-xs text-[#8C908B]">Home Expenses By 😊Oomyim Pimjai😊</footer>
       </div>
 
       {isExpenseOpen && (
         <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5">
-          <div className="expense-modal w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto">
-            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 py-4 border-b border-[#ECE9E1] flex items-center justify-between">
+          <div className="expense-modal expense-sheet w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain">
+            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between">
+              <span className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[#C9D4CC] sm:hidden" aria-hidden="true" />
               <div><p className="eyebrow">{editingExpenseId ? "แก้ไขรายการรายจ่าย" : "บันทึกรายการใหม่"}</p><h2 className="font-display text-2xl mt-1">{editingExpenseId ? "แก้ไขรายจ่าย" : "เพิ่มรายจ่าย"}</h2></div>
               <Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl"><X className="h-5 w-5" /></Button>
             </div>
