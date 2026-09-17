@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
-const currentVersion = "1.0.2";
+const currentVersion = "1.0.3";
 
 type VersionInfo = { latestVersion: string; downloadUrl: string | null };
 
