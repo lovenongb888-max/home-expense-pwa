@@ -223,7 +223,9 @@ export default function Home() {
   const [newCategory, setNewCategory] = useState("");
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(() => typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true));
+  const [sheetTouchStart, setSheetTouchStart] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const utils = trpc.useUtils();
 
   const categoriesQuery = trpc.categories.list.useQuery();
@@ -313,7 +315,11 @@ export default function Home() {
   const submitExpense = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!draft.title.trim() || !draft.amount || Number(draft.amount) <= 0) {
-      toast.error("กรุณากรอกชื่อรายการและจำนวนเงิน");
+      const invalidField = !draft.title.trim() ? "title" : "amount";
+      const target = fieldRefs.current[invalidField];
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => target?.focus(), 120);
+      toast.error(invalidField === "title" ? "กรุณากรอกชื่อรายการ" : "กรุณากรอกจำนวนเงินให้ถูกต้อง");
       return;
     }
     if (!isOnline && editingExpenseId) {
@@ -551,15 +557,15 @@ export default function Home() {
       {isExpenseOpen && (
         <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5">
           <div className="expense-modal expense-sheet w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between">
+            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between" onTouchStart={event => setSheetTouchStart(event.changedTouches[0]?.clientY ?? null)} onTouchEnd={event => { const end = event.changedTouches[0]?.clientY ?? 0; if (sheetTouchStart !== null && end - sheetTouchStart > 80) setExpenseOpen(false); setSheetTouchStart(null); }}>
               <span className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[#C9D4CC] sm:hidden" aria-hidden="true" />
               <div><p className="eyebrow">{editingExpenseId ? "แก้ไขรายการรายจ่าย" : "บันทึกรายการใหม่"}</p><h2 className="font-display text-2xl mt-1">{editingExpenseId ? "แก้ไขรายจ่าย" : "เพิ่มรายจ่าย"}</h2></div>
               <Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl"><X className="h-5 w-5" /></Button>
             </div>
             <form onSubmit={submitExpense} className="expense-form p-5 space-y-4">
-              <div><label className="field-label">รายการ</label><Input autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="เช่น ซื้อของเข้าบ้าน" className="h-12 rounded-xl bg-white" /></div>
+              <div><label className="field-label">รายการ</label><Input ref={element => { fieldRefs.current.title = element; }} autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="เช่น ซื้อของเข้าบ้าน" className="h-12 rounded-xl bg-white" /></div>
               <div><label className="field-label">ชื่อผู้รับเงิน <span className="normal-case font-normal text-[#A0A39E]">(AI จะช่วยอ่านจากบิล)</span></label><Input value={draft.recipientName} onChange={e => setDraft({ ...draft, recipientName: e.target.value })} placeholder="เช่น AIS หรือบริษัท สยามมาร์ท" className="h-12 rounded-xl bg-white" /></div>
-              <div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="font-numeric h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div></div>
+              <div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input ref={element => { fieldRefs.current.amount = element; }} type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="font-numeric h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div></div>
               <div><label className="field-label">เลขอ้างอิง <span className="normal-case font-normal text-[#A0A39E]">(QR/Barcode จะเติมให้อัตโนมัติ)</span></label><Input value={draft.referenceNumber} onChange={e => setDraft({ ...draft, referenceNumber: e.target.value })} placeholder="เช่น เลขที่รายการ หรือเลขลูกค้า" className="h-12 rounded-xl bg-white" /></div>
               <div><label className="field-label">หมวดหมู่</label><select value={draft.categoryId} onChange={e => setDraft({ ...draft, categoryId: e.target.value })} className="h-12 w-full rounded-xl border border-[#E5E3DC] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#2F6F68]/20"><option value="">ไม่ระบุหมวดหมู่</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
               <div><label className="field-label">รายละเอียดเพิ่มเติม <span className="normal-case font-normal text-[#A0A39E]">(QR/Barcode จะเติมให้อัตโนมัติ)</span></label><Textarea value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="บันทึกช่วยจำสั้น ๆ" className="rounded-xl bg-white resize-none" rows={3} /></div>

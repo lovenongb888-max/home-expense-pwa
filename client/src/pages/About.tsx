@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, ChevronDown, Download, Home, Info, Mail, Share2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 
-const appVersion = "1.0.3";
-const androidVersion = "1.0.3";
+const appVersion = "1.0.4";
+const androidVersion = "1.0.4";
 const releaseDate = "16 กันยายน 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null };
 
 const updateHistory = [
+  { version: "1.0.4", date: "17 กันยายน 2569", title: "เพิ่มการควบคุม popup และตรวจเวอร์ชันจริง", items: ["ปัดลงจากแถบจับเพื่อปิด bottom sheet", "โฟกัสและเลื่อนไปยังช่องที่กรอกไม่ครบอัตโนมัติ", "อ่านเวอร์ชัน Android จริงจาก native Capacitor App plugin"] },
   { version: "1.0.3", date: "17 กันยายน 2569", title: "ปรับ popup ให้พ้นปุ่ม Home", items: ["ลดความสูง popup เพิ่มพื้นที่ด้านล่างสำหรับ Android Navigation Bar", "ยก bottom sheet ขึ้นจากปุ่ม Home และคงการเลื่อนฟอร์มภายใน"] },
   { version: "1.0.2", date: "17 กันยายน 2569", title: "ปรับประสบการณ์ใช้งาน Android", items: ["ปรับหน้าเพิ่มรายจ่ายเป็น bottom sheet ใช้งานมือเดียวได้สะดวกขึ้น", "ซ่อนปุ่มติดตั้งเมื่อเปิดจาก Android native หรือแอปที่ติดตั้งแล้ว", "เพิ่มข้อความ Home Expenses By Oomyim Pimjai ที่ท้ายหน้า"] },
   { version: "1.0.1", date: "16 กันยายน 2569", title: "ปรับหน้าจอ Android", items: ["ลดระยะขอบและความสูงการ์ดสำหรับจอ 360×800 และ 412×915", "ปรับขนาดยอดเงิน ปุ่ม และรายการล่าสุดให้พอดีกับจอแคบ", "คงเลย์เอาต์แท็บเล็ตและเดสก์ท็อปเดิม"] },
@@ -23,10 +26,16 @@ export default function About() {
   const { data: downloadStats } = trpc.appStats.summary.useQuery();
   const [versionStatus, setVersionStatus] = useState<"idle" | "checking" | "latest" | "available" | "error">("idle");
   const [latestInfo, setLatestInfo] = useState<VersionInfo | null>(null);
+  const [installedVersion, setInstalledVersion] = useState<string | null>(null);
   const [expandedVersion, setExpandedVersion] = useState(appVersion);
   const [downloadHistory, setDownloadHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("apk-download-history") ?? "[]") as string[]; } catch { return []; }
   });
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void CapacitorApp.getInfo().then(info => setInstalledVersion(info.version)).catch(() => undefined);
+  }, []);
 
   const checkForUpdates = async () => {
     setVersionStatus("checking");
@@ -76,7 +85,7 @@ export default function About() {
 
         <section className="overflow-hidden rounded-[30px] bg-[#2F6F68] p-6 text-white shadow-xl shadow-[#2F6F68]/15 sm:p-8">
           <div className="flex items-start gap-4"><div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15"><Info className="h-7 w-7" /></div><div><p className="text-sm tracking-[0.14em] text-white/65">ABOUT THE APP</p><h1 className="font-display mt-1 text-3xl font-semibold">เกี่ยวกับบ้านเรา</h1><p className="mt-2 text-sm leading-6 text-white/75">ผู้ช่วยจัดการรายจ่ายในบ้านให้เป็นเรื่องง่าย อ่านบิล เก็บรายการ และดูภาพรวมได้ในที่เดียว</p></div></div>
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-white/10 p-3"><p className="text-xs text-white/60">เวอร์ชันแอป</p><p className="font-numeric mt-1 text-xl">{appVersion}</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-xs text-white/60">Android</p><p className="font-numeric mt-1 text-xl">{androidVersion}</p></div><div className="col-span-2 rounded-2xl bg-white/10 p-3 sm:col-span-1"><p className="text-xs text-white/60">อัปเดตล่าสุด</p><p className="mt-1 text-sm">{releaseDate}</p></div></div>
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-white/10 p-3"><p className="text-xs text-white/60">เวอร์ชันแอป</p><p className="font-numeric mt-1 text-xl">{appVersion}</p></div><div className="rounded-2xl bg-white/10 p-3"><p className="text-xs text-white/60">Android</p><p className="font-numeric mt-1 text-xl">{installedVersion ?? androidVersion}</p>{installedVersion && <p className="mt-1 text-[10px] text-white/60">เวอร์ชันติดตั้งจริง</p>}</div><div className="col-span-2 rounded-2xl bg-white/10 p-3 sm:col-span-1"><p className="text-xs text-white/60">อัปเดตล่าสุด</p><p className="mt-1 text-sm">{releaseDate}</p></div></div>
         </section>
 
         <section className="mt-5 rounded-[26px] border border-[#E5E3DC] bg-white p-5 shadow-sm sm:p-7">
