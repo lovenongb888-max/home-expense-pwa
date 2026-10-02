@@ -6,14 +6,15 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp, type InstallVerification } from "@/lib/app-install-verifier";
 
-const appVersion = "1.0.8";
-const androidVersion = "1.0.8";
+const appVersion = "1.0.9";
+const androidVersion = "1.0.9";
 const releaseDate = "2 ตุลาคม 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 type WebUpdateRecord = { version: string; loadedAt: string };
 
 const updateHistory = [
+  { version: "1.0.9", date: "3 ตุลาคม 2569", title: "จัดการประวัติเว็บอัตโนมัติ", items: ["ล้างประวัติเว็บรุ่นที่เก่ากว่า 90 วันโดยอัตโนมัติ", "เปลี่ยนหัวข้อช่องบันทึกรายการใหม่เป็นวันครบรอบกำหนดชำระ"] },
   { version: "1.0.8", date: "3 ตุลาคม 2569", title: "ยกเลิกและเร่งการอัปโหลดบิล", items: ["เพิ่มปุ่มยกเลิกการอัปโหลดระหว่างส่งไฟล์", "บีบอัดรูปบิลอัตโนมัติเป็น JPG ขนาดเหมาะสมก่อนอัปโหลด", "บันทึกประวัติเครดิตเว็บรุ่นที่โหลดสำเร็จพร้อมวันเวลาในอุปกรณ์"] },
   { version: "1.0.7", date: "2 ตุลาคม 2569", title: "แสดง progress อัปโหลดแบบละเอียด", items: ["เพิ่มเปอร์เซ็นต์จาก XMLHttpRequest upload progress จริง", "เพิ่ม toast แจ้งเมื่อเว็บรุ่นใหม่โหลดสำเร็จ", "ปรับสถานะการอัปโหลดให้เห็นช่วงเตรียมไฟล์ ส่งไฟล์ และบันทึกรายจ่าย"] },
   { version: "1.0.6", date: "2 ตุลาคม 2569", title: "อัปเดตอัตโนมัติและปรับจอ Android", items: ["เว็บภายใน APK อัปเดตอัตโนมัติผ่าน Service Worker โดยไม่ต้องติดตั้ง APK ใหม่", "เพิ่ม progress ระหว่างเตรียมและอัปโหลดบิลขนาดใหญ่", "เพิ่มปุ่มลองตรวจลายเซ็นอีกครั้ง และเว้นพื้นที่ navigation bar ให้หน้า Android"] },
@@ -40,7 +41,13 @@ export default function About() {
     try { return JSON.parse(localStorage.getItem("apk-download-history") ?? "[]") as string[]; } catch { return []; }
   });
   const [webUpdateHistory] = useState<WebUpdateRecord[]>(() => {
-    try { return JSON.parse(localStorage.getItem("baan-rao-web-update-history") ?? "[]") as WebUpdateRecord[]; } catch { return []; }
+    try {
+      const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+      const saved = JSON.parse(localStorage.getItem("baan-rao-web-update-history") ?? "[]") as WebUpdateRecord[];
+      const fresh = saved.filter(item => item && typeof item.version === "string" && Date.parse(item.loadedAt) >= cutoff).slice(0, 10);
+      localStorage.setItem("baan-rao-web-update-history", JSON.stringify(fresh));
+      return fresh;
+    } catch { localStorage.removeItem("baan-rao-web-update-history"); return []; }
   });
 
   useEffect(() => {
