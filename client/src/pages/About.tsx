@@ -6,13 +6,14 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp, type InstallVerification } from "@/lib/app-install-verifier";
 
-const appVersion = "1.0.6";
-const androidVersion = "1.0.6";
+const appVersion = "1.0.7";
+const androidVersion = "1.0.7";
 const releaseDate = "2 ตุลาคม 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 
 const updateHistory = [
+  { version: "1.0.7", date: "2 ตุลาคม 2569", title: "แสดง progress อัปโหลดแบบละเอียด", items: ["เพิ่มเปอร์เซ็นต์จาก XMLHttpRequest upload progress จริง", "เพิ่ม toast แจ้งเมื่อเว็บรุ่นใหม่โหลดสำเร็จ", "ปรับสถานะการอัปโหลดให้เห็นช่วงเตรียมไฟล์ ส่งไฟล์ และบันทึกรายจ่าย"] },
   { version: "1.0.6", date: "2 ตุลาคม 2569", title: "อัปเดตอัตโนมัติและปรับจอ Android", items: ["เว็บภายใน APK อัปเดตอัตโนมัติผ่าน Service Worker โดยไม่ต้องติดตั้ง APK ใหม่", "เพิ่ม progress ระหว่างเตรียมและอัปโหลดบิลขนาดใหญ่", "เพิ่มปุ่มลองตรวจลายเซ็นอีกครั้ง และเว้นพื้นที่ navigation bar ให้หน้า Android"] },
   { version: "1.0.5", date: "1 ตุลาคม 2569", title: "อัปเดตปลอดภัยและบันทึกรายจ่ายเร็วขึ้น", items: ["ตรวจลายเซ็น APK และสถานะการติดตั้งก่อนแจ้งเตือนอัปเดต", "แสดงคำเตือนหากต้องถอนรุ่นเดิมก่อนติดตั้ง", "เพิ่ม animation ขณะปัดปิด bottom sheet และลดเวลารอบันทึกรายจ่าย"] },
   { version: "1.0.4", date: "17 กันยายน 2569", title: "เพิ่มการควบคุม popup และตรวจเวอร์ชันจริง", items: ["ปัดลงจากแถบจับเพื่อปิด bottom sheet", "โฟกัสและเลื่อนไปยังช่องที่กรอกไม่ครบอัตโนมัติ", "อ่านเวอร์ชัน Android จริงจาก native Capacitor App plugin"] },

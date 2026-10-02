@@ -108,6 +108,33 @@ function fileToBase64(file: File) {
   });
 }
 
+function uploadReceiptWithProgress(file: File, onProgress: (value: number) => void) {
+  return new Promise<{ key: string; url: string }>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", "/api/receipts/upload-xhr");
+    request.withCredentials = true;
+    request.setRequestHeader("X-Receipt-Filename", encodeURIComponent(file.name));
+    request.setRequestHeader("X-Receipt-Mime", file.type);
+    request.upload.onprogress = event => {
+      if (event.lengthComputable) onProgress(Math.max(45, Math.min(85, 45 + Math.round((event.loaded / event.total) * 40))));
+    };
+    request.onerror = () => reject(new Error("อัปโหลดบิลไม่สำเร็จ กรุณาลองใหม่"));
+    request.onabort = () => reject(new Error("ยกเลิกการอัปโหลดบิล"));
+    request.onload = () => {
+      try {
+        const body = JSON.parse(request.responseText) as { key?: string; url?: string; message?: string };
+        if (request.status < 200 || request.status >= 300 || !body.key || !body.url) throw new Error(body.message ?? "อัปโหลดบิลไม่สำเร็จ");
+        onProgress(85);
+        resolve({ key: body.key, url: body.url });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("อัปโหลดบิลไม่สำเร็จ"));
+      }
+    };
+    onProgress(45);
+    request.send(file);
+  });
+}
+
 function base64ToFile(base64: string, fileName: string, mimeType: string) {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -357,9 +384,7 @@ export default function Home() {
       }
       if (draft.file) {
         setUploadProgress(15);
-        const receiptToUpload: QueuedReceipt = { fileName: draft.file.name, mimeType: draft.file.type as QueuedReceipt["mimeType"], base64: await fileToBase64(draft.file) };
-        setUploadProgress(45);
-        receipt = await uploadReceipt.mutateAsync(receiptToUpload);
+        receipt = await uploadReceiptWithProgress(draft.file, setUploadProgress);
         setUploadProgress(85);
       }
       const serverExpenseInput = { ...expenseInput, spentAt: new Date(expenseInput.spentAt), receiptKey: receipt?.key ?? null, receiptUrl: receipt?.url ?? null };

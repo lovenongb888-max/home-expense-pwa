@@ -46,6 +46,7 @@ if ("serviceWorker" in navigator) window.addEventListener("load", () => {
   void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(registration => {
     void registration.update();
     navigator.serviceWorker.addEventListener("controllerchange", () => {
+      sessionStorage.setItem("baan-rao-web-updated", "1");
       window.location.reload();
     }, { once: true });
   }).catch(() => undefined);

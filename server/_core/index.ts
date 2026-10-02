@@ -8,6 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { storagePut } from "../storage";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -36,6 +37,19 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  app.post("/api/receipts/upload-xhr", express.raw({ type: ["image/jpeg", "image/png", "image/webp", "application/pdf"], limit: "6mb" }), async (req, res) => {
+    try {
+      const mimeType = req.header("x-receipt-mime") ?? req.header("content-type");
+      if (!mimeType || !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(mimeType)) return res.status(415).json({ message: "รองรับเฉพาะ JPG, PNG, WebP และ PDF" });
+      const body = Buffer.isBuffer(req.body) ? req.body : Buffer.from([]);
+      if (!body.length) return res.status(400).json({ message: "ไม่พบไฟล์บิล" });
+      const fileName = decodeURIComponent(req.header("x-receipt-filename") ?? "receipt").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-120);
+      const result = await storagePut(`anonymous/receipts/${Date.now()}-${fileName}`, body, mimeType);
+      return res.json(result);
+    } catch (error) {
+      return res.status(500).json({ message: error instanceof Error ? error.message : "อัปโหลดบิลไม่สำเร็จ" });
+    }
+  });
   // tRPC API
   app.use(
     "/api/trpc",

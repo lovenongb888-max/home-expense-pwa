@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp } from "@/lib/app-install-verifier";
 
-const currentVersion = "1.0.6";
+const currentVersion = "1.0.7";
 
 type VersionInfo = { latestVersion: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 
@@ -20,6 +20,10 @@ export default function VersionUpdateNotifier() {
   const reportVersion = trpc.appStats.reportVersion.useMutation();
   useEffect(() => {
     let cancelled = false;
+    if (sessionStorage.getItem("baan-rao-web-updated") === "1") {
+      sessionStorage.removeItem("baan-rao-web-updated");
+      toast.success("อัปเดตเว็บสำเร็จ", { description: "บ้านเราโหลดฟีเจอร์รุ่นใหม่แล้ว โดยไม่ต้องติดตั้ง APK ใหม่", duration: 5000 });
+    }
     const platform = /Android/i.test(navigator.userAgent) ? "android" : "web";
     void reportVersion.mutateAsync({ clientId: getClientId(), appVersion: currentVersion, platform }).catch(() => undefined);
     const check = async () => {
