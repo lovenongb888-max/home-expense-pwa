@@ -2,6 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { prepareReceiptAttachments, scanReceiptCodes, type DetectedCode } from "@/lib/receipt-processing";
 import { enqueueExpense, listQueuedExpenses, removeQueuedExpense, type QueuedExpensePayload, type QueuedReceipt } from "@/lib/offline-upload-queue";
 import { pickReceiptFromDevice } from "@/lib/native-file-picker";
@@ -220,6 +221,7 @@ export default function Home() {
   const [detectedCodes, setDetectedCodes] = useState<DetectedCode[]>([]);
   const [selectedCodeIndex, setSelectedCodeIndex] = useState(0);
   const [codeStatus, setCodeStatus] = useState<"idle" | "scanning" | "done">("idle");
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [newCategory, setNewCategory] = useState("");
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(() => typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true));
@@ -341,17 +343,24 @@ export default function Home() {
         receiptUrl: null,
       };
       if (!isOnline && !editingExpenseId) {
+        setUploadProgress(draft.file ? 15 : null);
         const queuedReceipt: QueuedReceipt | null = draft.file ? { fileName: draft.file.name, mimeType: draft.file.type as QueuedReceipt["mimeType"], base64: await fileToBase64(draft.file) } : null;
+        if (draft.file) setUploadProgress(85);
         await enqueueExpense({ payload: expenseInput, receipt: queuedReceipt });
+        setUploadProgress(100);
         await refreshQueueCount();
         toast.success("บันทึกไว้ในคิวแล้ว จะอัปโหลดอัตโนมัติเมื่อกลับมาออนไลน์");
         setExpenseOpen(false);
         setDraft(emptyDraft());
+        setUploadProgress(null);
         return;
       }
       if (draft.file) {
+        setUploadProgress(15);
         const receiptToUpload: QueuedReceipt = { fileName: draft.file.name, mimeType: draft.file.type as QueuedReceipt["mimeType"], base64: await fileToBase64(draft.file) };
+        setUploadProgress(45);
         receipt = await uploadReceipt.mutateAsync(receiptToUpload);
+        setUploadProgress(85);
       }
       const serverExpenseInput = { ...expenseInput, spentAt: new Date(expenseInput.spentAt), receiptKey: receipt?.key ?? null, receiptUrl: receipt?.url ?? null };
       if (editingExpenseId) {
@@ -369,8 +378,10 @@ export default function Home() {
       setSelectedCodeIndex(0);
       setCodeStatus("idle");
       setExpenseOpen(false);
+      setUploadProgress(null);
       void Promise.all([utils.expenses.list.invalidate(), utils.expenses.stats.invalidate()]);
     } catch (error) {
+      setUploadProgress(null);
       toast.error(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
     }
   };
@@ -582,13 +593,14 @@ export default function Home() {
                   {draft.file && ocrStatus !== "reading" && codeStatus !== "scanning" ? <Check className="ml-auto h-4 w-4 text-[#2F6F68]" /> : <Plus className="ml-auto h-4 w-4 text-[#8C908B]" />}
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full rounded-xl border border-[#D9E2DB] bg-white px-3 py-2 text-xs text-[#2F6F68] hover:bg-[#F5FAF6]">เลือกจากเบราว์เซอร์ / ไฟล์ในเครื่อง</button>
+                {uploadProgress !== null && <div className="rounded-xl border border-[#CDE2D5] bg-white px-3 py-2.5" aria-live="polite"><div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-[#52645D]"><span>{uploadProgress < 45 ? "กำลังเตรียมไฟล์บิล..." : uploadProgress < 85 ? "กำลังอัปโหลดบิล..." : "อัปโหลดแล้ว กำลังบันทึกรายจ่าย..."}</span><span className="font-numeric">{uploadProgress}%</span></div><Progress value={uploadProgress} className="h-2 bg-[#E7EFE9] [&>[data-slot=progress-indicator]]:bg-[#2F6F68]" /></div>}
                 {queuedCount > 0 && <p className="rounded-xl bg-[#FFF4D9] px-3 py-2 text-xs text-[#8B6C2B]">มี {queuedCount} รายการรออัปโหลด จะส่งอัตโนมัติเมื่อกลับมาออนไลน์</p>}
               </div>
               {editingExpenseId && existingReceipt.url && !removeExistingReceipt && <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E5E3DC] bg-white px-3 py-2"><a href={existingReceipt.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-xs text-[#2F6F68]">เปิดบิลเดิมที่แนบไว้</a><Button type="button" variant="ghost" onClick={() => setRemoveExistingReceipt(true)} className="h-8 shrink-0 rounded-lg px-2 text-xs text-[#B06B67] hover:bg-[#FFF0EF]">นำบิลออก</Button></div>}
               {removeExistingReceipt && <p className="rounded-xl bg-[#FFF0EF] px-3 py-2 text-xs text-[#9B5550]">บิลเดิมจะถูกนำออกจากรายการเมื่อกดบันทึก</p>}
               {detectedCodes.length > 0 && <div className="rounded-2xl border border-[#CDE2D5] bg-[#EEF8F1] p-4 space-y-3"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm font-semibold text-[#2F6F68]"><QrCode className="h-4 w-4" />พบข้อมูลจาก QR/Barcode</div><span className="text-[11px] text-[#6B8177]">เลือกใช้ได้หลายรายการ</span></div>{detectedCodes.map((code, index) => <div key={`${code.text}-${index}`} className={`rounded-xl bg-white/80 p-3 ${selectedCodeIndex === index ? "ring-2 ring-[#5C938A]/35" : ""}`}><div className="flex items-center justify-between gap-2"><span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[#6B8177]"><ScanLine className="h-3.5 w-3.5" />{code.format}{selectedCodeIndex === index && <span className="normal-case text-[#2F6F68]">· ใช้อยู่</span>}</span><div className="flex items-center gap-1"><Button type="button" variant="ghost" onClick={() => applyDetectedCode(index)} className="h-7 px-2 rounded-lg text-xs text-[#2F6F68] hover:bg-[#E5F1E8]">ใช้รายการนี้</Button><Button type="button" variant="ghost" onClick={() => copyDetectedCode(code.text)} className="h-7 px-2 rounded-lg text-[#2F6F68] hover:bg-[#E5F1E8]"><Copy className="h-3.5 w-3.5 mr-1" />คัดลอก</Button></div></div><p className="mt-2 text-xs leading-5 text-[#3E514A] break-all select-text">{code.text}</p></div>)}</div>}
               {editingExpenseId && <section className="rounded-2xl border border-[#E5E3DC] bg-white/65 p-4"><div className="flex items-center gap-2 text-sm font-semibold text-[#52645D]"><History className="h-4 w-4" />ประวัติรายการ</div>{historyQuery.isLoading ? <p className="mt-3 text-xs text-[#8C908B]">กำลังโหลดประวัติ...</p> : historyQuery.data?.length ? <div className="mt-3 space-y-2">{historyQuery.data.map(item => <div key={item.id} className="rounded-xl bg-[#F7F5EF] px-3 py-2"><div className="flex items-center justify-between gap-2 text-xs"><span className={item.action === "deleted" ? "text-[#B06B67]" : "text-[#2F6F68]"}>{item.action === "deleted" ? "ก่อนลบ" : "ก่อนแก้ไข"}</span><span className="text-[#8C908B]">{historyDate.format(new Date(item.changedAt))}</span></div><p className="mt-1 text-xs text-[#52645D]">{historySummary(item.snapshot)}</p></div>)}</div> : <p className="mt-3 text-xs text-[#8C908B]">ยังไม่มีประวัติการเปลี่ยนแปลง</p>}</section>}
-              <Button type="submit" disabled={createExpense.isPending || updateExpense.isPending || uploadReceipt.isPending || ocrReceipt.isPending || ocrStatus === "reading" || codeStatus === "scanning"} className="w-full h-12 rounded-xl bg-[#2F6F68] hover:bg-[#275E58] text-white mt-2">{createExpense.isPending || updateExpense.isPending || uploadReceipt.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}{editingExpenseId ? "บันทึกการแก้ไข" : "บันทึกรายจ่าย"}</Button>
+              <Button type="submit" disabled={createExpense.isPending || updateExpense.isPending || uploadReceipt.isPending || ocrReceipt.isPending || uploadProgress !== null || ocrStatus === "reading" || codeStatus === "scanning"} className="w-full h-12 rounded-xl bg-[#2F6F68] hover:bg-[#275E58] text-white mt-2">{createExpense.isPending || updateExpense.isPending || uploadReceipt.isPending || uploadProgress !== null ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}{uploadProgress !== null ? `กำลังอัปโหลด ${uploadProgress}%` : editingExpenseId ? "บันทึกการแก้ไข" : "บันทึกรายจ่าย"}</Button>
             </form>
           </div>
         </div>

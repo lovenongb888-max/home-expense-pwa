@@ -42,7 +42,14 @@ const trpcClient = trpc.createClient({
   })],
 });
 
-if ("serviceWorker" in navigator) window.addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").catch(() => undefined); });
+if ("serviceWorker" in navigator) window.addEventListener("load", () => {
+  void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(registration => {
+    void registration.update();
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    }, { once: true });
+  }).catch(() => undefined);
+});
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

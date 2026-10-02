@@ -1,4 +1,4 @@
-const CACHE_NAME = "baan-rao-shell-v2";
+const CACHE_NAME = "baan-rao-shell-v3";
 const APP_SHELL = ["/", "/manifest.json", "/icons/home-icon.svg", "/icons/home-icon-192.png", "/icons/home-icon-512.png"];
 
 self.addEventListener("install", event => {

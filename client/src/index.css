@@ -115,7 +115,9 @@
   @media (max-width: 639px) {
     .android-shell body { font-size: 15px; }
     .android-shell .container { padding-left: 0.875rem; padding-right: 0.875rem; }
-    .android-shell .home-shell { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+    .android-shell .home-shell { padding-bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+    .android-shell .home-shell footer { padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
+    .android-shell .home-shell aside { gap: 0.75rem; }
     .android-shell .home-hero-grid { gap: 0.75rem; }
     .android-shell .home-summary { min-height: 13.5rem; }
     .android-shell .home-month { min-height: 10.5rem; }

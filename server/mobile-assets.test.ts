@@ -7,7 +7,7 @@ const projectRoot = resolve(import.meta.dirname, "..");
 describe("mobile app assets", () => {
   it("contains an offline service worker with navigation fallback", () => {
     const serviceWorker = readFileSync(resolve(projectRoot, "client/public/sw.js"), "utf8");
-    expect(serviceWorker).toContain("baan-rao-shell-v2");
+    expect(serviceWorker).toContain("baan-rao-shell-v3");
     expect(serviceWorker).toContain('event.request.mode === "navigate"');
     expect(serviceWorker).toContain("caches.match(\"/\")");
   });
