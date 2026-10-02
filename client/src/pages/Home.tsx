@@ -224,6 +224,7 @@ export default function Home() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(() => typeof window !== "undefined" && (window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true));
   const [sheetTouchStart, setSheetTouchStart] = useState<number | null>(null);
+  const [sheetDragOffset, setSheetDragOffset] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const utils = trpc.useUtils();
@@ -339,8 +340,8 @@ export default function Home() {
         receiptKey: null,
         receiptUrl: null,
       };
-      const queuedReceipt: QueuedReceipt | null = draft.file ? { fileName: draft.file.name, mimeType: draft.file.type as QueuedReceipt["mimeType"], base64: await fileToBase64(draft.file) } : null;
       if (!isOnline && !editingExpenseId) {
+        const queuedReceipt: QueuedReceipt | null = draft.file ? { fileName: draft.file.name, mimeType: draft.file.type as QueuedReceipt["mimeType"], base64: await fileToBase64(draft.file) } : null;
         await enqueueExpense({ payload: expenseInput, receipt: queuedReceipt });
         await refreshQueueCount();
         toast.success("บันทึกไว้ในคิวแล้ว จะอัปโหลดอัตโนมัติเมื่อกลับมาออนไลน์");
@@ -348,7 +349,10 @@ export default function Home() {
         setDraft(emptyDraft());
         return;
       }
-      if (queuedReceipt) receipt = await uploadReceipt.mutateAsync(queuedReceipt);
+      if (draft.file) {
+        const receiptToUpload: QueuedReceipt = { fileName: draft.file.name, mimeType: draft.file.type as QueuedReceipt["mimeType"], base64: await fileToBase64(draft.file) };
+        receipt = await uploadReceipt.mutateAsync(receiptToUpload);
+      }
       const serverExpenseInput = { ...expenseInput, spentAt: new Date(expenseInput.spentAt), receiptKey: receipt?.key ?? null, receiptUrl: receipt?.url ?? null };
       if (editingExpenseId) {
         await updateExpense.mutateAsync({ id: editingExpenseId, ...serverExpenseInput });
@@ -365,7 +369,7 @@ export default function Home() {
       setSelectedCodeIndex(0);
       setCodeStatus("idle");
       setExpenseOpen(false);
-      await Promise.all([utils.expenses.list.invalidate(), utils.expenses.stats.invalidate()]);
+      void Promise.all([utils.expenses.list.invalidate(), utils.expenses.stats.invalidate()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
     }
@@ -557,10 +561,10 @@ export default function Home() {
       {isExpenseOpen && (
         <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5">
           <div className="expense-modal expense-sheet w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between" onTouchStart={event => setSheetTouchStart(event.changedTouches[0]?.clientY ?? null)} onTouchEnd={event => { const end = event.changedTouches[0]?.clientY ?? 0; if (sheetTouchStart !== null && end - sheetTouchStart > 80) setExpenseOpen(false); setSheetTouchStart(null); }}>
+            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between select-none" style={{ transform: `translateY(${sheetDragOffset}px)`, transition: sheetTouchStart === null ? "transform 180ms cubic-bezier(0.23, 1, 0.32, 1)" : "none" }} onTouchStart={event => { setSheetTouchStart(event.changedTouches[0]?.clientY ?? null); setSheetDragOffset(0); }} onTouchMove={event => { if (sheetTouchStart === null) return; const delta = Math.max(0, (event.changedTouches[0]?.clientY ?? 0) - sheetTouchStart); setSheetDragOffset(Math.min(delta, 180)); }} onTouchEnd={() => { if (sheetDragOffset > 80) { setSheetTouchStart(null); setSheetDragOffset(window.innerHeight); window.setTimeout(() => { setExpenseOpen(false); setSheetDragOffset(0); }, 180); } else { setSheetTouchStart(null); setSheetDragOffset(0); } }} onTouchCancel={() => { setSheetTouchStart(null); setSheetDragOffset(0); }}>
               <span className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[#C9D4CC] sm:hidden" aria-hidden="true" />
               <div><p className="eyebrow">{editingExpenseId ? "แก้ไขรายการรายจ่าย" : "บันทึกรายการใหม่"}</p><h2 className="font-display text-2xl mt-1">{editingExpenseId ? "แก้ไขรายจ่าย" : "เพิ่มรายจ่าย"}</h2></div>
-              <Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl"><X className="h-5 w-5" /></Button>
+              <Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl" aria-label="ปิดฟอร์มเพิ่มรายจ่าย"><X className="h-5 w-5" /></Button>
             </div>
             <form onSubmit={submitExpense} className="expense-form p-5 space-y-4">
               <div><label className="field-label">รายการ</label><Input ref={element => { fieldRefs.current.title = element; }} autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} placeholder="เช่น ซื้อของเข้าบ้าน" className="h-12 rounded-xl bg-white" /></div>

@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, ChevronDown, Download, Home, Info, Mail, Share2, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { verifyInstalledApp, type InstallVerification } from "@/lib/app-install-verifier";
 
-const appVersion = "1.0.4";
-const androidVersion = "1.0.4";
-const releaseDate = "16 กันยายน 2569";
+const appVersion = "1.0.5";
+const androidVersion = "1.0.5";
+const releaseDate = "1 ตุลาคม 2569";
 
-type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null };
+type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 
 const updateHistory = [
+  { version: "1.0.5", date: "1 ตุลาคม 2569", title: "อัปเดตปลอดภัยและบันทึกรายจ่ายเร็วขึ้น", items: ["ตรวจลายเซ็น APK และสถานะการติดตั้งก่อนแจ้งเตือนอัปเดต", "แสดงคำเตือนหากต้องถอนรุ่นเดิมก่อนติดตั้ง", "เพิ่ม animation ขณะปัดปิด bottom sheet และลดเวลารอบันทึกรายจ่าย"] },
   { version: "1.0.4", date: "17 กันยายน 2569", title: "เพิ่มการควบคุม popup และตรวจเวอร์ชันจริง", items: ["ปัดลงจากแถบจับเพื่อปิด bottom sheet", "โฟกัสและเลื่อนไปยังช่องที่กรอกไม่ครบอัตโนมัติ", "อ่านเวอร์ชัน Android จริงจาก native Capacitor App plugin"] },
   { version: "1.0.3", date: "17 กันยายน 2569", title: "ปรับ popup ให้พ้นปุ่ม Home", items: ["ลดความสูง popup เพิ่มพื้นที่ด้านล่างสำหรับ Android Navigation Bar", "ยก bottom sheet ขึ้นจากปุ่ม Home และคงการเลื่อนฟอร์มภายใน"] },
   { version: "1.0.2", date: "17 กันยายน 2569", title: "ปรับประสบการณ์ใช้งาน Android", items: ["ปรับหน้าเพิ่มรายจ่ายเป็น bottom sheet ใช้งานมือเดียวได้สะดวกขึ้น", "ซ่อนปุ่มติดตั้งเมื่อเปิดจาก Android native หรือแอปที่ติดตั้งแล้ว", "เพิ่มข้อความ Home Expenses By Oomyim Pimjai ที่ท้ายหน้า"] },
@@ -27,6 +29,7 @@ export default function About() {
   const [versionStatus, setVersionStatus] = useState<"idle" | "checking" | "latest" | "available" | "error">("idle");
   const [latestInfo, setLatestInfo] = useState<VersionInfo | null>(null);
   const [installedVersion, setInstalledVersion] = useState<string | null>(null);
+  const [installVerification, setInstallVerification] = useState<InstallVerification | null>(null);
   const [expandedVersion, setExpandedVersion] = useState(appVersion);
   const [downloadHistory, setDownloadHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("apk-download-history") ?? "[]") as string[]; } catch { return []; }
@@ -35,6 +38,7 @@ export default function About() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     void CapacitorApp.getInfo().then(info => setInstalledVersion(info.version)).catch(() => undefined);
+    void verifyInstalledApp("77A3DEFEF0FF1C23DEA09058C5CC41390DC0DF60ABB3311BE58A96022E4F1D28").then(setInstallVerification);
   }, []);
 
   const checkForUpdates = async () => {
@@ -44,6 +48,7 @@ export default function About() {
       if (!response.ok) throw new Error("version check failed");
       const info = await response.json() as VersionInfo;
       setLatestInfo(info);
+      setInstallVerification(await verifyInstalledApp(info.signatureSha256));
       setVersionStatus(info.latestVersion === appVersion ? "latest" : "available");
     } catch {
       setVersionStatus("error");
@@ -92,7 +97,7 @@ export default function About() {
           <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-[#B18A36]" /><h2 className="font-display text-xl">ตรวจสอบเวอร์ชันใหม่</h2></div><button type="button" onClick={checkForUpdates} disabled={versionStatus === "checking"} className="rounded-xl bg-[#2F6F68] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#275E58] disabled:opacity-60">{versionStatus === "checking" ? "กำลังตรวจสอบ..." : "ตรวจสอบตอนนี้"}</button></div>
           <p className="mt-3 text-sm text-[#777D78]">ตรวจจากข้อมูลเวอร์ชันล่าสุดของแอป โดยไม่ต้องออกจากหน้านี้</p>
           {versionStatus === "latest" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#E7EFE9] px-3 py-2 text-sm text-[#2F6F68]"><span>คุณใช้เวอร์ชันล่าสุดแล้ว ({latestInfo?.latestVersion})</span>{latestInfo?.downloadUrl && <div className="flex gap-2"><a href={latestInfo.downloadUrl} download onClick={recordDownload} className="inline-flex items-center gap-2 rounded-lg bg-[#2F6F68] px-3 py-2 text-xs font-medium text-white hover:bg-[#275E58]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด APK</a><button type="button" onClick={shareDownloadLink} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-[#2F6F68] hover:bg-[#F7F5EF]"><Share2 className="h-3.5 w-3.5" />แชร์</button></div>}</div>}
-          {versionStatus === "available" && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#FFF4D9] px-3 py-2 text-sm text-[#8B6C2B]"><span>มีเวอร์ชันใหม่ {latestInfo?.latestVersion}</span>{latestInfo?.downloadUrl ? <div className="flex gap-2"><a href={latestInfo.downloadUrl} download onClick={recordDownload} className="inline-flex items-center gap-2 rounded-lg bg-[#2F6F68] px-3 py-2 text-xs font-medium text-white hover:bg-[#275E58]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด APK</a><button type="button" onClick={shareDownloadLink} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-[#2F6F68] hover:bg-[#FFF9E9]"><Share2 className="h-3.5 w-3.5" />แชร์</button></div> : <span className="text-xs">รอลิงก์ดาวน์โหลดจากผู้ดูแล</span>}</div>}
+          {versionStatus === "available" && <div className="mt-4 rounded-xl bg-[#FFF4D9] px-3 py-3 text-sm text-[#8B6C2B]"><div className="flex flex-wrap items-center justify-between gap-3"><span>มีเวอร์ชันใหม่ {latestInfo?.latestVersion}</span>{latestInfo?.downloadUrl ? <div className="flex gap-2"><a href={latestInfo.downloadUrl} download onClick={recordDownload} className="inline-flex items-center gap-2 rounded-lg bg-[#2F6F68] px-3 py-2 text-xs font-medium text-white hover:bg-[#275E58]"><Download className="h-3.5 w-3.5" />ดาวน์โหลด APK</a><button type="button" onClick={shareDownloadLink} className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-[#2F6F68] hover:bg-[#FFF9E9]"><Share2 className="h-3.5 w-3.5" />แชร์</button></div> : <span className="text-xs">รอลิงก์ดาวน์โหลดจากผู้ดูแล</span>}</div>{(latestInfo?.requiresUninstall || installVerification?.signatureMatches === false || installVerification?.warning) && <p className="mt-3 rounded-lg bg-[#FFF0EF] px-3 py-2 text-xs leading-5 text-[#9B5550]">ลายเซ็น APK ไม่ตรงกับรุ่นที่ติดตั้งอยู่ อาจต้องสำรองข้อมูลและถอนการติดตั้งรุ่นเดิมก่อนติดตั้งรุ่นใหม่</p>}</div>}
           {versionStatus === "error" && <p className="mt-4 rounded-xl bg-[#FFF0EF] px-3 py-2 text-sm text-[#9B5550]">ตรวจสอบไม่ได้ในขณะนี้ กรุณาลองใหม่เมื่อออนไลน์</p>}
         </section>
 

@@ -1,8 +1,10 @@
 {
-  "latestVersion": "1.0.4",
-  "androidVersion": "1.0.4",
-  "releaseDate": "17 กันยายน 2569",
-  "downloadUrl": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663926745991/cePuWTFCDDEDCSeA.apk",
-  "bundleUrl": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663926745991/pDhVXKAiCevOSfEm.aab",
-  "sha256": "3c8e9a43880f56c4a505798a69921a223ca4f9db584e651155972cfa97a4ace9"
+  "latestVersion": "1.0.5",
+  "androidVersion": "1.0.5",
+  "releaseDate": "1 ตุลาคม 2569",
+  "downloadUrl": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663926745991/PIlCCxyRoJiDhZgw.apk",
+  "bundleUrl": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663926745991/aECHAuFKezKiXbuk.aab",
+  "sha256": "2851189450a82b363e00f29216407ad6d3b6573e68270fc4864463b85564fbdd",
+  "signatureSha256": "77A3DEFEF0FF1C23DEA09058C5CC41390DC0DF60ABB3311BE58A96022E4F1D28",
+  "requiresUninstall": false
 }

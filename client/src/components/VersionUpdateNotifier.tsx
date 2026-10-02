@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { verifyInstalledApp } from "@/lib/app-install-verifier";
 
-const currentVersion = "1.0.4";
+const currentVersion = "1.0.5";
 
-type VersionInfo = { latestVersion: string; downloadUrl: string | null };
+type VersionInfo = { latestVersion: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 
 function getClientId() {
   const key = "baan-rao-client-id";
@@ -27,13 +28,18 @@ export default function VersionUpdateNotifier() {
         if (!response.ok) return;
         const info = await response.json() as VersionInfo;
         if (cancelled || info.latestVersion === currentVersion) return;
+        const install = await verifyInstalledApp(info.signatureSha256);
+        if (cancelled) return;
         const notified = localStorage.getItem("version-notified");
         if (notified === info.latestVersion) return;
         localStorage.setItem("version-notified", info.latestVersion);
+        const needsUninstall = info.requiresUninstall === true || install.signatureMatches === false;
         toast(`มีเวอร์ชันใหม่ ${info.latestVersion}`, {
-          description: "กดอัปเดตเพื่อดาวน์โหลด APK แล้วให้ Android ดำเนินการติดตั้ง",
+          description: needsUninstall
+            ? "ลายเซ็นรุ่นเดิมไม่ตรงกัน กรุณาสำรองข้อมูลและถอนการติดตั้งรุ่นเดิมก่อนลงรุ่นใหม่"
+            : "ตรวจสอบลายเซ็นแล้ว กดอัปเดตเพื่อดาวน์โหลด APK",
           duration: 12000,
-          action: info.downloadUrl ? { label: "อัปเดตทันที", onClick: () => { window.location.href = info.downloadUrl!; } } : { label: "ดูรายละเอียด", onClick: () => { window.location.href = "/about"; } },
+          action: info.downloadUrl ? { label: needsUninstall ? "ดูวิธีติดตั้ง" : "อัปเดตทันที", onClick: () => { window.location.href = "/about"; } } : { label: "ดูรายละเอียด", onClick: () => { window.location.href = "/about"; } },
         });
       } catch {
         // Version checks are best-effort and should never block the app.
