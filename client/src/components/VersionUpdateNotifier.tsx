@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp } from "@/lib/app-install-verifier";
 
-const currentVersion = "1.0.7";
+const currentVersion = "1.0.8";
 
 type VersionInfo = { latestVersion: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 
@@ -22,6 +22,10 @@ export default function VersionUpdateNotifier() {
     let cancelled = false;
     if (sessionStorage.getItem("baan-rao-web-updated") === "1") {
       sessionStorage.removeItem("baan-rao-web-updated");
+      const historyKey = "baan-rao-web-update-history";
+      const history = (() => { try { return JSON.parse(localStorage.getItem(historyKey) ?? "[]") as Array<{ version: string; loadedAt: string }>; } catch { return []; } })();
+      const nextHistory = [{ version: currentVersion, loadedAt: new Date().toISOString() }, ...history.filter(item => item.version !== currentVersion)].slice(0, 10);
+      localStorage.setItem(historyKey, JSON.stringify(nextHistory));
       toast.success("อัปเดตเว็บสำเร็จ", { description: "บ้านเราโหลดฟีเจอร์รุ่นใหม่แล้ว โดยไม่ต้องติดตั้ง APK ใหม่", duration: 5000 });
     }
     const platform = /Android/i.test(navigator.userAgent) ? "android" : "web";

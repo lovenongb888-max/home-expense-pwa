@@ -108,9 +108,33 @@ function fileToBase64(file: File) {
   });
 }
 
-function uploadReceiptWithProgress(file: File, onProgress: (value: number) => void) {
+async function compressReceiptImage(file: File, onProgress: (value: number) => void) {
+  if (!file.type.startsWith("image/") || typeof document === "undefined") return file;
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("อ่านรูปบิลไม่สำเร็จ")); image.src = imageUrl; });
+    const maxSide = 1800;
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    onProgress(35);
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+function uploadReceiptWithProgress(file: File, onProgress: (value: number) => void, onRequest: (request: XMLHttpRequest | null) => void) {
   return new Promise<{ key: string; url: string }>((resolve, reject) => {
     const request = new XMLHttpRequest();
+    onRequest(request);
     request.open("POST", "/api/receipts/upload-xhr");
     request.withCredentials = true;
     request.setRequestHeader("X-Receipt-Filename", encodeURIComponent(file.name));
@@ -118,15 +142,17 @@ function uploadReceiptWithProgress(file: File, onProgress: (value: number) => vo
     request.upload.onprogress = event => {
       if (event.lengthComputable) onProgress(Math.max(45, Math.min(85, 45 + Math.round((event.loaded / event.total) * 40))));
     };
-    request.onerror = () => reject(new Error("อัปโหลดบิลไม่สำเร็จ กรุณาลองใหม่"));
-    request.onabort = () => reject(new Error("ยกเลิกการอัปโหลดบิล"));
+    request.onerror = () => { onRequest(null); reject(new Error("อัปโหลดบิลไม่สำเร็จ กรุณาลองใหม่")); };
+    request.onabort = () => { onRequest(null); reject(new Error("ยกเลิกการอัปโหลดบิล")); };
     request.onload = () => {
       try {
         const body = JSON.parse(request.responseText) as { key?: string; url?: string; message?: string };
         if (request.status < 200 || request.status >= 300 || !body.key || !body.url) throw new Error(body.message ?? "อัปโหลดบิลไม่สำเร็จ");
         onProgress(85);
+        onRequest(null);
         resolve({ key: body.key, url: body.url });
       } catch (error) {
+        onRequest(null);
         reject(error instanceof Error ? error : new Error("อัปโหลดบิลไม่สำเร็จ"));
       }
     };
@@ -255,6 +281,8 @@ export default function Home() {
   const [sheetTouchStart, setSheetTouchStart] = useState<number | null>(null);
   const [sheetDragOffset, setSheetDragOffset] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadRequestRef = useRef<XMLHttpRequest | null>(null);
+  const uploadCancelRef = useRef(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const utils = trpc.useUtils();
 
@@ -383,8 +411,11 @@ export default function Home() {
         return;
       }
       if (draft.file) {
+        uploadCancelRef.current = false;
         setUploadProgress(15);
-        receipt = await uploadReceiptWithProgress(draft.file, setUploadProgress);
+        const uploadFile = await compressReceiptImage(draft.file, setUploadProgress);
+        if (uploadCancelRef.current) throw new Error("ยกเลิกการอัปโหลดบิล");
+        receipt = await uploadReceiptWithProgress(uploadFile, setUploadProgress, request => { uploadRequestRef.current = request; });
         setUploadProgress(85);
       }
       const serverExpenseInput = { ...expenseInput, spentAt: new Date(expenseInput.spentAt), receiptKey: receipt?.key ?? null, receiptUrl: receipt?.url ?? null };
@@ -407,8 +438,16 @@ export default function Home() {
       void Promise.all([utils.expenses.list.invalidate(), utils.expenses.stats.invalidate()]);
     } catch (error) {
       setUploadProgress(null);
-      toast.error(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
+      if (error instanceof Error && error.message === "ยกเลิกการอัปโหลดบิล") toast.info("ยกเลิกการอัปโหลดบิลแล้ว");
+      else toast.error(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ");
     }
+  };
+
+  const cancelReceiptUpload = () => {
+    uploadCancelRef.current = true;
+    uploadRequestRef.current?.abort();
+    uploadRequestRef.current = null;
+    setUploadProgress(null);
   };
 
   const submitCategory = async (event: React.FormEvent) => {
@@ -618,7 +657,7 @@ export default function Home() {
                   {draft.file && ocrStatus !== "reading" && codeStatus !== "scanning" ? <Check className="ml-auto h-4 w-4 text-[#2F6F68]" /> : <Plus className="ml-auto h-4 w-4 text-[#8C908B]" />}
                 </button>
                 <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full rounded-xl border border-[#D9E2DB] bg-white px-3 py-2 text-xs text-[#2F6F68] hover:bg-[#F5FAF6]">เลือกจากเบราว์เซอร์ / ไฟล์ในเครื่อง</button>
-                {uploadProgress !== null && <div className="rounded-xl border border-[#CDE2D5] bg-white px-3 py-2.5" aria-live="polite"><div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-[#52645D]"><span>{uploadProgress < 45 ? "กำลังเตรียมไฟล์บิล..." : uploadProgress < 85 ? "กำลังอัปโหลดบิล..." : "อัปโหลดแล้ว กำลังบันทึกรายจ่าย..."}</span><span className="font-numeric">{uploadProgress}%</span></div><Progress value={uploadProgress} className="h-2 bg-[#E7EFE9] [&>[data-slot=progress-indicator]]:bg-[#2F6F68]" /></div>}
+                {uploadProgress !== null && <div className="rounded-xl border border-[#CDE2D5] bg-white px-3 py-2.5" aria-live="polite"><div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-[#52645D]"><span>{uploadProgress < 35 ? "กำลังบีบอัดรูปบิลให้เร็วขึ้น..." : uploadProgress < 45 ? "กำลังเตรียมไฟล์บิล..." : uploadProgress < 85 ? "กำลังอัปโหลดบิล..." : "อัปโหลดแล้ว กำลังบันทึกรายจ่าย..."}</span><span className="font-numeric">{uploadProgress}%</span></div><Progress value={uploadProgress} className="h-2 bg-[#E7EFE9] [&>[data-slot=progress-indicator]]:bg-[#2F6F68]" /><button type="button" onClick={cancelReceiptUpload} className="mt-2 w-full rounded-lg border border-[#E4B9B3] px-3 py-1.5 text-xs font-medium text-[#9B5550] hover:bg-[#FFF0EF]">ยกเลิกการอัปโหลด</button></div>}
                 {queuedCount > 0 && <p className="rounded-xl bg-[#FFF4D9] px-3 py-2 text-xs text-[#8B6C2B]">มี {queuedCount} รายการรออัปโหลด จะส่งอัตโนมัติเมื่อกลับมาออนไลน์</p>}
               </div>
               {editingExpenseId && existingReceipt.url && !removeExistingReceipt && <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E5E3DC] bg-white px-3 py-2"><a href={existingReceipt.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-xs text-[#2F6F68]">เปิดบิลเดิมที่แนบไว้</a><Button type="button" variant="ghost" onClick={() => setRemoveExistingReceipt(true)} className="h-8 shrink-0 rounded-lg px-2 text-xs text-[#B06B67] hover:bg-[#FFF0EF]">นำบิลออก</Button></div>}

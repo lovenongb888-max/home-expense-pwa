@@ -6,13 +6,15 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp, type InstallVerification } from "@/lib/app-install-verifier";
 
-const appVersion = "1.0.7";
-const androidVersion = "1.0.7";
+const appVersion = "1.0.8";
+const androidVersion = "1.0.8";
 const releaseDate = "2 ตุลาคม 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
+type WebUpdateRecord = { version: string; loadedAt: string };
 
 const updateHistory = [
+  { version: "1.0.8", date: "3 ตุลาคม 2569", title: "ยกเลิกและเร่งการอัปโหลดบิล", items: ["เพิ่มปุ่มยกเลิกการอัปโหลดระหว่างส่งไฟล์", "บีบอัดรูปบิลอัตโนมัติเป็น JPG ขนาดเหมาะสมก่อนอัปโหลด", "บันทึกประวัติเครดิตเว็บรุ่นที่โหลดสำเร็จพร้อมวันเวลาในอุปกรณ์"] },
   { version: "1.0.7", date: "2 ตุลาคม 2569", title: "แสดง progress อัปโหลดแบบละเอียด", items: ["เพิ่มเปอร์เซ็นต์จาก XMLHttpRequest upload progress จริง", "เพิ่ม toast แจ้งเมื่อเว็บรุ่นใหม่โหลดสำเร็จ", "ปรับสถานะการอัปโหลดให้เห็นช่วงเตรียมไฟล์ ส่งไฟล์ และบันทึกรายจ่าย"] },
   { version: "1.0.6", date: "2 ตุลาคม 2569", title: "อัปเดตอัตโนมัติและปรับจอ Android", items: ["เว็บภายใน APK อัปเดตอัตโนมัติผ่าน Service Worker โดยไม่ต้องติดตั้ง APK ใหม่", "เพิ่ม progress ระหว่างเตรียมและอัปโหลดบิลขนาดใหญ่", "เพิ่มปุ่มลองตรวจลายเซ็นอีกครั้ง และเว้นพื้นที่ navigation bar ให้หน้า Android"] },
   { version: "1.0.5", date: "1 ตุลาคม 2569", title: "อัปเดตปลอดภัยและบันทึกรายจ่ายเร็วขึ้น", items: ["ตรวจลายเซ็น APK และสถานะการติดตั้งก่อนแจ้งเตือนอัปเดต", "แสดงคำเตือนหากต้องถอนรุ่นเดิมก่อนติดตั้ง", "เพิ่ม animation ขณะปัดปิด bottom sheet และลดเวลารอบันทึกรายจ่าย"] },
@@ -36,6 +38,9 @@ export default function About() {
   const [expandedVersion, setExpandedVersion] = useState(appVersion);
   const [downloadHistory, setDownloadHistory] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("apk-download-history") ?? "[]") as string[]; } catch { return []; }
+  });
+  const [webUpdateHistory] = useState<WebUpdateRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem("baan-rao-web-update-history") ?? "[]") as WebUpdateRecord[]; } catch { return []; }
   });
 
   useEffect(() => {
@@ -116,6 +121,8 @@ export default function About() {
 
         <section className="mt-5 rounded-[26px] border border-[#D6E2D9] bg-[#E7EFE9] p-5 shadow-sm sm:p-7"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl">สถิติการดาวน์โหลด</h2><span className="text-xs text-[#8C908B]">ข้อมูลรวมจากระบบ</span></div><div className="mt-4 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-white/70 p-3"><p className="text-xs text-[#71857B]">ดาวน์โหลดทั้งหมด</p><p className="font-numeric mt-1 text-2xl font-semibold text-[#2F6F68]">{downloadStats?.totalDownloads ?? 0}</p></div><div className="rounded-2xl bg-[#FCF3D8] p-3"><p className="text-xs text-[#8B6C2B]">เวอร์ชันปัจจุบัน</p><p className="font-numeric mt-1 text-2xl font-semibold text-[#8B6C2B]">{appVersion}</p></div></div>{downloadStats?.byVersion.length ? <ul className="mt-4 space-y-2 text-sm text-[#52645D]">{downloadStats.byVersion.map(item => <li key={item.version} className="flex justify-between rounded-xl bg-[#FCFBF7] px-3 py-2"><span>ดาวน์โหลด v{item.version}</span><strong>{item.downloads} ครั้ง</strong></li>)}</ul> : null}<div className="mt-4 border-t border-[#D6E2D9] pt-4"><p className="text-xs text-[#71857B]">เวอร์ชันที่ผู้ใช้กำลังใช้งานในช่วง 30 วัน</p>{downloadStats?.activeByVersion?.length ? <ul className="mt-2 space-y-2 text-sm text-[#52645D]">{downloadStats.activeByVersion.map(item => <li key={item.version} className="flex justify-between rounded-xl bg-white/70 px-3 py-2"><span>v{item.version}</span><strong>{item.users} ผู้ใช้</strong></li>)}</ul> : <p className="mt-2 text-sm text-[#8C908B]">ยังไม่มีข้อมูลการใช้งาน</p>}</div></section>
         <section className="mt-5 rounded-[26px] border border-[#E5E3DC] bg-white p-5 shadow-sm sm:p-7"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl">ประวัติการดาวน์โหลด APK</h2><span className="text-xs text-[#8C908B]">เก็บไว้ในอุปกรณ์นี้</span></div>{downloadHistory.length ? <ul className="mt-4 space-y-2 text-sm text-[#52645D]">{downloadHistory.map((item, index) => <li key={`${item}-${index}`} className="rounded-xl bg-[#FCFBF7] px-3 py-2">ดาวน์โหลดเมื่อ {item}</li>)}</ul> : <p className="mt-3 text-sm text-[#8C908B]">ยังไม่มีประวัติการดาวน์โหลด</p>}</section>
+
+        <section className="mt-5 rounded-[26px] border border-[#D6E2D9] bg-[#E7EFE9] p-5 shadow-sm sm:p-7"><div className="flex items-center justify-between gap-3"><h2 className="font-display text-xl">ประวัติการอัปเดตเว็บ</h2><span className="text-xs text-[#71857B]">เก็บไว้ในอุปกรณ์นี้</span></div>{webUpdateHistory.length ? <ul className="mt-4 space-y-2 text-sm text-[#52645D]">{webUpdateHistory.map((item, index) => <li key={`${item.version}-${item.loadedAt}-${index}`} className="flex items-center justify-between gap-3 rounded-xl bg-white/70 px-3 py-2"><span>โหลดเว็บรุ่น <strong className="font-numeric text-[#2F6F68]">v{item.version}</strong> สำเร็จ</span><time className="shrink-0 text-xs text-[#71857B]">{new Date(item.loadedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}</time></li>)}</ul> : <p className="mt-3 text-sm text-[#8C908B]">ยังไม่มีประวัติการอัปเดตเว็บ</p>}</section>
 
         <section className="mt-5 rounded-[26px] border border-[#E5E3DC] bg-white p-5 shadow-sm sm:p-7"><div className="flex items-center gap-3"><Sparkles className="h-5 w-5 text-[#B18A36]" /><h2 className="font-display text-xl">ประวัติการอัปเดต</h2></div><div className="mt-5 space-y-3">{updateHistory.map(update => <div key={update.version} className="rounded-2xl border border-[#ECE9E1] bg-[#FCFBF7] p-4"><button type="button" onClick={() => setExpandedVersion(expandedVersion === update.version ? "" : update.version)} className="flex w-full items-center justify-between gap-3 text-left"><span><span className="font-numeric font-semibold text-[#2F6F68]">v{update.version}</span><span className="ml-2 text-xs text-[#8C908B]">{update.date}</span><span className="block mt-1 font-medium">{update.title}</span></span><ChevronDown className={`h-4 w-4 shrink-0 text-[#71857B] transition-transform ${expandedVersion === update.version ? "rotate-180" : ""}`} /></button>{expandedVersion === update.version && <ul className="mt-3 space-y-2 border-t border-[#ECE9E1] pt-3 text-sm leading-6 text-[#52645D]">{update.items.map(item => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-[#4E9A78]" />{item}</li>)}</ul>}</div>)}</div></section>
 
