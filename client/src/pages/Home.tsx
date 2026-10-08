@@ -95,7 +95,7 @@ const emptyDraft = (): ExpenseDraft => ({
   categoryId: "",
   spentAt: toDateInput(new Date()),
   referenceNumber: "",
-  note: "",
+  note: toDateInput(new Date()),
   file: null,
 });
 
@@ -490,7 +490,7 @@ export default function Home() {
       categoryId: expense.categoryId ? String(expense.categoryId) : "",
       spentAt: toDateInput(new Date(expense.spentAt)),
       referenceNumber: expense.referenceNumber ?? "",
-      note: expense.note ?? "",
+      note: /^\d{4}-\d{2}-\d{2}$/.test(expense.note ?? "") ? expense.note! : toDateInput(new Date(expense.spentAt)),
       file: null,
     });
     setEditingExpenseId(expense.id);
@@ -647,7 +647,7 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input ref={element => { fieldRefs.current.amount = element; }} type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="font-numeric h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div></div>
               <div><label className="field-label">เลขอ้างอิง <span className="normal-case font-normal text-[#A0A39E]">(QR/Barcode จะเติมให้อัตโนมัติ)</span></label><Input value={draft.referenceNumber} onChange={e => setDraft({ ...draft, referenceNumber: e.target.value })} placeholder="เช่น เลขที่รายการ หรือเลขลูกค้า" className="h-12 rounded-xl bg-white" /></div>
               <div><label className="field-label">หมวดหมู่</label><select value={draft.categoryId} onChange={e => setDraft({ ...draft, categoryId: e.target.value })} className="h-12 w-full rounded-xl border border-[#E5E3DC] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#2F6F68]/20"><option value="">ไม่ระบุหมวดหมู่</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
-              <div><label className="field-label">วันครบรอบกำหนดชำระ</label><Textarea value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="เช่น วันที่ต้องชำระบิล หรือบันทึกช่วยจำ" className="rounded-xl bg-white resize-none" rows={3} /></div>
+              <div><label className="field-label">วันครบรอบกำหนดชำระ</label><Input type="date" value={draft.note || draft.spentAt} onChange={e => setDraft({ ...draft, note: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div>
               <div>
                 <label className="field-label">บิล / ใบเสร็จ</label>
                 <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => handleReceiptSelected(e.target.files?.[0] ?? null)} />

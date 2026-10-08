@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp } from "@/lib/app-install-verifier";
 
-const currentVersion = "1.0.9";
+const currentVersion = "1.0.10";
 
 type VersionInfo = { latestVersion: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 
