@@ -104,6 +104,8 @@ export async function listExpenses(userId: number, from: Date, to: Date, ownerKe
       recipientName: expenses.recipientName,
       amount: expenses.amount,
       spentAt: expenses.spentAt,
+      dueDate: expenses.dueDate,
+      recurrence: expenses.recurrence,
       referenceNumber: expenses.referenceNumber,
       note: expenses.note,
       receiptKey: expenses.receiptKey,

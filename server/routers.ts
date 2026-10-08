@@ -86,12 +86,14 @@ export const appRouter = router({
         amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
         categoryId: z.number().int().positive().nullable().optional(),
         spentAt: z.date(),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+        recurrence: z.enum(["none", "monthly"]).default("none"),
         referenceNumber: z.string().trim().max(500).nullable().optional(),
         note: z.string().max(2000).nullable().optional(),
         receiptKey: z.string().max(500).nullable().optional(),
         receiptUrl: z.string().max(700).nullable().optional(),
       }))
-      .mutation(({ ctx, input }) => createExpense({ ...input, userId: 1, ownerKey: getOwnerKey(ctx), recipientName: input.recipientName ?? null, categoryId: input.categoryId ?? null, referenceNumber: input.referenceNumber ?? null, note: input.note ?? null, receiptKey: input.receiptKey ?? null, receiptUrl: input.receiptUrl ?? null })),
+      .mutation(({ ctx, input }) => createExpense({ ...input, userId: 1, ownerKey: getOwnerKey(ctx), recipientName: input.recipientName ?? null, categoryId: input.categoryId ?? null, dueDate: input.dueDate ?? null, recurrence: input.recurrence, referenceNumber: input.referenceNumber ?? null, note: input.note ?? null, receiptKey: input.receiptKey ?? null, receiptUrl: input.receiptUrl ?? null })),
     update: publicProcedure
       .input(z.object({
         id: z.number().int().positive(),
@@ -100,6 +102,8 @@ export const appRouter = router({
         amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
         categoryId: z.number().int().positive().nullable().optional(),
         spentAt: z.date(),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+        recurrence: z.enum(["none", "monthly"]).default("none"),
         referenceNumber: z.string().trim().max(500).nullable().optional(),
         note: z.string().max(2000).nullable().optional(),
         receiptKey: z.string().max(500).nullable().optional(),
@@ -111,6 +115,8 @@ export const appRouter = router({
         amount: input.amount,
         categoryId: input.categoryId ?? null,
         spentAt: input.spentAt,
+        dueDate: input.dueDate ?? null,
+        recurrence: input.recurrence,
         referenceNumber: input.referenceNumber ?? null,
         note: input.note ?? null,
         receiptKey: input.receiptKey ?? null,

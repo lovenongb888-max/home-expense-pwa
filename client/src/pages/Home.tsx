@@ -83,6 +83,8 @@ type ExpenseDraft = {
   amount: string;
   categoryId: string;
   spentAt: string;
+  dueDate: string;
+  recurrence: "none" | "monthly";
   referenceNumber: string;
   note: string;
   file: File | null;
@@ -94,8 +96,10 @@ const emptyDraft = (): ExpenseDraft => ({
   amount: "",
   categoryId: "",
   spentAt: toDateInput(new Date()),
+  dueDate: toDateInput(new Date()),
+  recurrence: "none",
   referenceNumber: "",
-  note: toDateInput(new Date()),
+  note: "",
   file: null,
 });
 
@@ -392,6 +396,8 @@ export default function Home() {
         amount: draft.amount,
         categoryId: draft.categoryId ? Number(draft.categoryId) : null,
         spentAt: `${draft.spentAt}T12:00:00`,
+        dueDate: draft.dueDate || null,
+        recurrence: draft.recurrence,
         referenceNumber: draft.referenceNumber.trim() || null,
         note: draft.note.trim() || null,
         receiptKey: null,
@@ -489,8 +495,10 @@ export default function Home() {
       amount: String(expense.amount),
       categoryId: expense.categoryId ? String(expense.categoryId) : "",
       spentAt: toDateInput(new Date(expense.spentAt)),
+      dueDate: expense.dueDate ?? (/^\d{4}-\d{2}-\d{2}$/.test(expense.note ?? "") ? expense.note! : toDateInput(new Date(expense.spentAt))),
+      recurrence: expense.recurrence === "monthly" ? "monthly" : "none",
       referenceNumber: expense.referenceNumber ?? "",
-      note: /^\d{4}-\d{2}-\d{2}$/.test(expense.note ?? "") ? expense.note! : toDateInput(new Date(expense.spentAt)),
+      note: /^\d{4}-\d{2}-\d{2}$/.test(expense.note ?? "") ? "" : expense.note ?? "",
       file: null,
     });
     setEditingExpenseId(expense.id);
@@ -621,7 +629,7 @@ export default function Home() {
         <div className="grid lg:grid-cols-[1.45fr_0.8fr] gap-3 sm:gap-5 mt-3 sm:mt-5 items-start">
           <section className="rounded-[24px] sm:rounded-[28px] bg-white p-4 sm:p-5 md:p-7 shadow-sm border border-[#ECE9E1]">
             <div className="flex items-start justify-between gap-2 mb-4 sm:mb-5"><div><p className="eyebrow">รายการล่าสุด</p><h2 className="font-display text-xl sm:text-2xl mt-1 leading-tight">เงินออกไปไหนบ้าง</h2></div><span className="shrink-0 text-[11px] sm:text-xs text-[#8C908B] bg-[#F7F5EF] rounded-full px-2.5 sm:px-3 py-1.5">เรียงจากล่าสุด</span></div>
-            {expensesQuery.isLoading ? <div className="py-12 sm:py-16 flex justify-center text-[#2F6F68]"><Loader2 className="h-6 w-6 animate-spin" /></div> : expenses.length === 0 ? <div className="py-10 sm:py-14 text-center border border-dashed border-[#D9DDD6] rounded-2xl"><ReceiptText className="h-8 w-8 mx-auto text-[#A8B3AD]" /><p className="font-medium mt-3">ยังไม่มีรายจ่ายในเดือนนี้</p><p className="text-sm text-[#8C908B] mt-1">เริ่มจากกด “เพิ่มรายจ่าย” และแนบสลิปได้เลย</p></div> : <div className="space-y-1">{expenses.map(expense => { const Icon = getCategoryIcon(expense.categoryIcon); return <div key={expense.id} className="group flex items-center gap-2 sm:gap-3 py-3.5 border-b last:border-0 border-[#F0EEE8]"><div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${expense.categoryColor ?? "#3B7D78"}18`, color: expense.categoryColor ?? "#3B7D78" }}><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="font-medium truncate">{expense.title}</p>{expense.receiptUrl && <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="text-[#2F6F68]" title="เปิดบิล"><FileCheck2 className="h-3.5 w-3.5" /></a>}</div><p className="text-xs text-[#969B96] mt-1">{expense.recipientName ? `${expense.recipientName} · ` : ""}{expense.categoryName ?? "ไม่ระบุหมวดหมู่"} · {shortDate.format(new Date(expense.spentAt))}</p></div><p className="font-numeric text-sm sm:text-base font-semibold text-[#344540] whitespace-nowrap">{formatBaht(expense.amount)}</p><Button variant="ghost" onClick={() => openEditExpense(expense)} className="h-8 w-8 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-[#2F6F68] hover:bg-[#EAF3EE] rounded-lg" title="แก้ไขรายการ"><Pencil className="h-4 w-4" /></Button><Button variant="ghost" onClick={() => removeExpense(expense.id)} className="h-8 w-8 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-[#B06B67] hover:bg-[#FFF0EF] rounded-lg" title="ลบรายการ"><Trash2 className="h-4 w-4" /></Button></div>; })}</div>}
+            {expensesQuery.isLoading ? <div className="py-12 sm:py-16 flex justify-center text-[#2F6F68]"><Loader2 className="h-6 w-6 animate-spin" /></div> : expenses.length === 0 ? <div className="py-10 sm:py-14 text-center border border-dashed border-[#D9DDD6] rounded-2xl"><ReceiptText className="h-8 w-8 mx-auto text-[#A8B3AD]" /><p className="font-medium mt-3">ยังไม่มีรายจ่ายในเดือนนี้</p><p className="text-sm text-[#8C908B] mt-1">เริ่มจากกด “เพิ่มรายจ่าย” และแนบสลิปได้เลย</p></div> : <div className="space-y-1">{expenses.map(expense => { const Icon = getCategoryIcon(expense.categoryIcon); return <div key={expense.id} className="group flex items-center gap-2 sm:gap-3 py-3.5 border-b last:border-0 border-[#F0EEE8]"><div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${expense.categoryColor ?? "#3B7D78"}18`, color: expense.categoryColor ?? "#3B7D78" }}><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="font-medium truncate">{expense.title}</p>{expense.recurrence === "monthly" && <span className="shrink-0 rounded-full bg-[#E7EFE9] px-2 py-0.5 text-[10px] text-[#2F6F68]">ทุกเดือน</span>}{expense.receiptUrl && <a href={expense.receiptUrl} target="_blank" rel="noreferrer" className="text-[#2F6F68]" title="เปิดบิล"><FileCheck2 className="h-3.5 w-3.5" /></a>}</div><p className="text-xs text-[#969B96] mt-1">{expense.recipientName ? `${expense.recipientName} · ` : ""}{expense.categoryName ?? "ไม่ระบุหมวดหมู่"} · {shortDate.format(new Date(expense.spentAt))}</p></div><p className="font-numeric text-sm sm:text-base font-semibold text-[#344540] whitespace-nowrap">{formatBaht(expense.amount)}</p><Button variant="ghost" onClick={() => openEditExpense(expense)} className="h-8 w-8 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-[#2F6F68] hover:bg-[#EAF3EE] rounded-lg" title="แก้ไขรายการ"><Pencil className="h-4 w-4" /></Button><Button variant="ghost" onClick={() => removeExpense(expense.id)} className="h-8 w-8 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-[#B06B67] hover:bg-[#FFF0EF] rounded-lg" title="ลบรายการ"><Trash2 className="h-4 w-4" /></Button></div>; })}</div>}
           </section>
 
           <aside className="space-y-5">
@@ -647,7 +655,8 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-3"><div><label className="field-label">จำนวนเงิน (บาท)</label><Input ref={element => { fieldRefs.current.amount = element; }} type="number" inputMode="decimal" min="0" step="0.01" value={draft.amount} onChange={e => setDraft({ ...draft, amount: e.target.value })} placeholder="0.00" className="font-numeric h-12 rounded-xl bg-white" /></div><div><label className="field-label">วันที่</label><Input type="date" value={draft.spentAt} onChange={e => setDraft({ ...draft, spentAt: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div></div>
               <div><label className="field-label">เลขอ้างอิง <span className="normal-case font-normal text-[#A0A39E]">(QR/Barcode จะเติมให้อัตโนมัติ)</span></label><Input value={draft.referenceNumber} onChange={e => setDraft({ ...draft, referenceNumber: e.target.value })} placeholder="เช่น เลขที่รายการ หรือเลขลูกค้า" className="h-12 rounded-xl bg-white" /></div>
               <div><label className="field-label">หมวดหมู่</label><select value={draft.categoryId} onChange={e => setDraft({ ...draft, categoryId: e.target.value })} className="h-12 w-full rounded-xl border border-[#E5E3DC] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#2F6F68]/20"><option value="">ไม่ระบุหมวดหมู่</option>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
-              <div><label className="field-label">วันครบรอบกำหนดชำระ</label><Input type="date" value={draft.note || draft.spentAt} onChange={e => setDraft({ ...draft, note: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div>
+              <div className="grid grid-cols-2 gap-3"><div><label className="field-label">วันครบรอบกำหนดชำระ</label><Input type="date" value={draft.dueDate || draft.spentAt} onChange={e => setDraft({ ...draft, dueDate: e.target.value })} className="font-numeric h-12 rounded-xl bg-white" /></div><div><label className="field-label">รอบชำระซ้ำ</label><select value={draft.recurrence} onChange={e => setDraft({ ...draft, recurrence: e.target.value as ExpenseDraft["recurrence"] })} className="h-12 w-full rounded-xl border border-[#E5E3DC] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[#2F6F68]/20"><option value="none">ไม่ทำซ้ำ</option><option value="monthly">ทุกเดือน</option></select></div></div>
+              <div><label className="field-label">รายละเอียดเพิ่มเติม <span className="normal-case font-normal text-[#A0A39E]">(QR/Barcode จะเติมให้อัตโนมัติ)</span></label><Textarea value={draft.note} onChange={e => setDraft({ ...draft, note: e.target.value })} placeholder="บันทึกช่วยจำสั้น ๆ" className="rounded-xl bg-white resize-none" rows={3} /></div>
               <div>
                 <label className="field-label">บิล / ใบเสร็จ</label>
                 <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={e => handleReceiptSelected(e.target.files?.[0] ?? null)} />

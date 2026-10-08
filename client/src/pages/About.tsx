@@ -6,14 +6,15 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { verifyInstalledApp, type InstallVerification } from "@/lib/app-install-verifier";
 
-const appVersion = "1.0.10";
-const androidVersion = "1.0.10";
+const appVersion = "1.0.11";
+const androidVersion = "1.0.11";
 const releaseDate = "2 ตุลาคม 2569";
 
 type VersionInfo = { latestVersion: string; androidVersion: string; releaseDate: string; downloadUrl: string | null; signatureSha256?: string | null; requiresUninstall?: boolean };
 type WebUpdateRecord = { version: string; loadedAt: string };
 
 const updateHistory = [
+  { version: "1.0.11", date: "8 ตุลาคม 2569", title: "ตั้งรอบชำระซ้ำรายเดือน", items: ["เพิ่มตัวเลือกไม่ทำซ้ำหรือทุกเดือนในฟอร์มรายจ่าย", "บันทึกวันกำหนดชำระแยกจากหมายเหตุและรองรับออฟไลน์", "แสดงป้ายทุกเดือนในรายการที่ตั้งรอบชำระซ้ำ"] },
   { version: "1.0.10", date: "3 ตุลาคม 2569", title: "กรอกวันกำหนดชำระอัตโนมัติ", items: ["เปลี่ยนช่องวันครบรอบกำหนดชำระเป็น date picker", "เติมวันที่รายการหรือวันที่ปัจจุบันให้อัตโนมัติ และยังแก้ไขได้"] },
   { version: "1.0.9", date: "3 ตุลาคม 2569", title: "จัดการประวัติเว็บอัตโนมัติ", items: ["ล้างประวัติเว็บรุ่นที่เก่ากว่า 90 วันโดยอัตโนมัติ", "เปลี่ยนหัวข้อช่องบันทึกรายการใหม่เป็นวันครบรอบกำหนดชำระ"] },
   { version: "1.0.8", date: "3 ตุลาคม 2569", title: "ยกเลิกและเร่งการอัปโหลดบิล", items: ["เพิ่มปุ่มยกเลิกการอัปโหลดระหว่างส่งไฟล์", "บีบอัดรูปบิลอัตโนมัติเป็น JPG ขนาดเหมาะสมก่อนอัปโหลด", "บันทึกประวัติเครดิตเว็บรุ่นที่โหลดสำเร็จพร้อมวันเวลาในอุปกรณ์"] },
