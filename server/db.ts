@@ -130,6 +130,37 @@ export async function createExpense(data: InsertExpense) {
   return created[0];
 }
 
+export async function createMonthlyExpenses(userId: number, ownerKey: string, year: number, month: number) {
+  const db = await getDb();
+  if (!db) return { created: 0 };
+  const targetFrom = new Date(year, month - 1, 1);
+  const targetTo = new Date(year, month, 1);
+  const sourceFrom = new Date(year, month - 2, 1);
+  const sourceTo = targetFrom;
+  const sources = await db.select().from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), eq(expenses.recurrence, "monthly"), gte(expenses.spentAt, sourceFrom), lt(expenses.spentAt, sourceTo)));
+  if (sources.length === 0) return { created: 0 };
+  const existing = await db.select({ recurrenceKey: expenses.recurrenceKey }).from(expenses).where(and(eq(expenses.userId, userId), eq(expenses.ownerKey, ownerKey), gte(expenses.spentAt, targetFrom), lt(expenses.spentAt, targetTo)));
+  const existingKeys = new Set(existing.map(item => item.recurrenceKey).filter((key): key is string => Boolean(key)));
+  let created = 0;
+  const daysInTargetMonth = new Date(year, month, 0).getDate();
+  for (const source of sources) {
+    const sourceKey = source.recurrenceKey ?? String(source.id);
+    const recurrenceKey = `${ownerKey}:${sourceKey}:${year}-${String(month).padStart(2, "0")}`;
+    if (existingKeys.has(recurrenceKey)) continue;
+    const sourceDay = source.dueDate ? Number(source.dueDate.slice(-2)) : source.spentAt.getDate();
+    const day = Math.min(Math.max(sourceDay, 1), daysInTargetMonth);
+    const dueDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    try {
+      await db.insert(expenses).values({ userId, ownerKey, categoryId: source.categoryId, title: source.title, recipientName: source.recipientName, amount: source.amount, spentAt: new Date(year, month - 1, day, 12), dueDate, recurrence: "monthly", recurrenceKey, referenceNumber: source.referenceNumber, note: source.note, receiptKey: null, receiptUrl: null });
+      existingKeys.add(recurrenceKey);
+      created += 1;
+    } catch (error) {
+      if (!String(error).toLowerCase().includes("duplicate")) throw error;
+    }
+  }
+  return { created };
+}
+
 export async function updateExpense(userId: number, expenseId: number, ownerKey: string, data: Partial<InsertExpense>) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");

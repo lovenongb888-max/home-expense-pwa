@@ -6,6 +6,7 @@ export type QueuedExpensePayload = {
   spentAt: string;
   dueDate: string | null;
   recurrence: "none" | "monthly";
+  recurrenceKey: string | null;
   referenceNumber: string | null;
   note: string | null;
   receiptKey: string | null;

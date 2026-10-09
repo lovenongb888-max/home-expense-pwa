@@ -300,8 +300,18 @@ export default function Home() {
   const createExpense = trpc.expenses.create.useMutation();
   const updateExpense = trpc.expenses.update.useMutation();
   const deleteExpense = trpc.expenses.delete.useMutation();
+  const ensureMonthly = trpc.expenses.ensureMonthly.useMutation();
   const createCategory = trpc.categories.create.useMutation();
   const deleteCategory = trpc.categories.delete.useMutation();
+
+  useEffect(() => {
+    let active = true;
+    const nextPeriod = period.month === 12 ? { year: period.year + 1, month: 1 } : { year: period.year, month: period.month + 1 };
+    Promise.all([ensureMonthly.mutateAsync(period), ensureMonthly.mutateAsync(nextPeriod)]).then(results => {
+      if (active && results.some(result => result.created > 0)) void Promise.all([utils.expenses.list.invalidate(), utils.expenses.stats.invalidate()]);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [period.year, period.month]);
 
   const refreshQueueCount = async () => {
     try { setQueuedCount((await listQueuedExpenses()).length); } catch { setQueuedCount(0); }
@@ -398,6 +408,7 @@ export default function Home() {
         spentAt: `${draft.spentAt}T12:00:00`,
         dueDate: draft.dueDate || null,
         recurrence: draft.recurrence,
+        recurrenceKey: null,
         referenceNumber: draft.referenceNumber.trim() || null,
         note: draft.note.trim() || null,
         receiptKey: null,

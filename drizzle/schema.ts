@@ -33,6 +33,7 @@ export const expenses = mysqlTable("expenses", {
   spentAt: timestamp("spentAt").notNull(),
   dueDate: varchar("dueDate", { length: 10 }),
   recurrence: mysqlEnum("recurrence", ["none", "monthly"]).default("none").notNull(),
+  recurrenceKey: varchar("recurrenceKey", { length: 140 }).unique(),
   referenceNumber: varchar("referenceNumber", { length: 500 }),
   note: text("note"),
   receiptKey: text("receiptKey"),

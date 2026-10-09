@@ -6,7 +6,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { createCategory, createExpense, deleteCategory, deleteExpense, getAppDownloadStats, getCategories, getExpenseStats, listExpenseHistory, listExpenses, recordAppDownload, recordVersionUsage, updateExpense } from "./db";
+import { createCategory, createExpense, createMonthlyExpenses, deleteCategory, deleteExpense, getAppDownloadStats, getCategories, getExpenseStats, listExpenseHistory, listExpenses, recordAppDownload, recordVersionUsage, updateExpense } from "./db";
 import { storagePut } from "./storage";
 
 const monthInput = z.object({ year: z.number().int().min(2000).max(2200), month: z.number().int().min(1).max(12) });
@@ -78,6 +78,7 @@ export const appRouter = router({
       const { from, to } = monthRange(input.year, input.month);
       return getExpenseStats(1, from, to, getOwnerKey(ctx));
     }),
+    ensureMonthly: publicProcedure.input(monthInput).mutation(({ ctx, input }) => createMonthlyExpenses(1, getOwnerKey(ctx), input.year, input.month)),
     history: publicProcedure.input(z.object({ id: z.number().int().positive() })).query(({ ctx, input }) => listExpenseHistory(1, input.id, getOwnerKey(ctx))),
     create: publicProcedure
       .input(z.object({
@@ -88,12 +89,13 @@ export const appRouter = router({
         spentAt: z.date(),
         dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
         recurrence: z.enum(["none", "monthly"]).default("none"),
+        recurrenceKey: z.string().max(140).nullable().optional(),
         referenceNumber: z.string().trim().max(500).nullable().optional(),
         note: z.string().max(2000).nullable().optional(),
         receiptKey: z.string().max(500).nullable().optional(),
         receiptUrl: z.string().max(700).nullable().optional(),
       }))
-      .mutation(({ ctx, input }) => createExpense({ ...input, userId: 1, ownerKey: getOwnerKey(ctx), recipientName: input.recipientName ?? null, categoryId: input.categoryId ?? null, dueDate: input.dueDate ?? null, recurrence: input.recurrence, referenceNumber: input.referenceNumber ?? null, note: input.note ?? null, receiptKey: input.receiptKey ?? null, receiptUrl: input.receiptUrl ?? null })),
+      .mutation(({ ctx, input }) => createExpense({ ...input, userId: 1, ownerKey: getOwnerKey(ctx), recipientName: input.recipientName ?? null, categoryId: input.categoryId ?? null, dueDate: input.dueDate ?? null, recurrence: input.recurrence, recurrenceKey: input.recurrenceKey ?? null, referenceNumber: input.referenceNumber ?? null, note: input.note ?? null, receiptKey: input.receiptKey ?? null, receiptUrl: input.receiptUrl ?? null })),
     update: publicProcedure
       .input(z.object({
         id: z.number().int().positive(),
@@ -104,6 +106,7 @@ export const appRouter = router({
         spentAt: z.date(),
         dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
         recurrence: z.enum(["none", "monthly"]).default("none"),
+        recurrenceKey: z.string().max(140).nullable().optional(),
         referenceNumber: z.string().trim().max(500).nullable().optional(),
         note: z.string().max(2000).nullable().optional(),
         receiptKey: z.string().max(500).nullable().optional(),
@@ -117,6 +120,7 @@ export const appRouter = router({
         spentAt: input.spentAt,
         dueDate: input.dueDate ?? null,
         recurrence: input.recurrence,
+        recurrenceKey: input.recurrenceKey ?? null,
         referenceNumber: input.referenceNumber ?? null,
         note: input.note ?? null,
         receiptKey: input.receiptKey ?? null,
