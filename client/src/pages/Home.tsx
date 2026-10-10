@@ -285,6 +285,7 @@ export default function Home() {
   const [sheetTouchStart, setSheetTouchStart] = useState<number | null>(null);
   const [sheetDragOffset, setSheetDragOffset] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const expenseModalRef = useRef<HTMLDivElement>(null);
   const uploadRequestRef = useRef<XMLHttpRequest | null>(null);
   const uploadCancelRef = useRef(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -303,6 +304,14 @@ export default function Home() {
   const ensureMonthly = trpc.expenses.ensureMonthly.useMutation();
   const createCategory = trpc.categories.create.useMutation();
   const deleteCategory = trpc.categories.delete.useMutation();
+
+  useEffect(() => {
+    if (!isExpenseOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      expenseModalRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isExpenseOpen, editingExpenseId]);
 
   useEffect(() => {
     let active = true;
@@ -654,8 +663,8 @@ export default function Home() {
 
       {isExpenseOpen && (
         <div className="fixed inset-0 z-50 bg-[#17211F]/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5">
-          <div className="expense-modal expense-sheet w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain">
-            <div className="sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between select-none" style={{ transform: `translateY(${sheetDragOffset}px)`, transition: sheetTouchStart === null ? "transform 180ms cubic-bezier(0.23, 1, 0.32, 1)" : "none" }} onTouchStart={event => { setSheetTouchStart(event.changedTouches[0]?.clientY ?? null); setSheetDragOffset(0); }} onTouchMove={event => { if (sheetTouchStart === null) return; const delta = Math.max(0, (event.changedTouches[0]?.clientY ?? 0) - sheetTouchStart); setSheetDragOffset(Math.min(delta, 180)); }} onTouchEnd={() => { if (sheetDragOffset > 80) { setSheetTouchStart(null); setSheetDragOffset(window.innerHeight); window.setTimeout(() => { setExpenseOpen(false); setSheetDragOffset(0); }, 180); } else { setSheetTouchStart(null); setSheetDragOffset(0); } }} onTouchCancel={() => { setSheetTouchStart(null); setSheetDragOffset(0); }}>
+          <div ref={expenseModalRef} className="expense-modal expense-sheet w-full sm:max-w-lg bg-[#FCFBF7] rounded-t-[30px] sm:rounded-[30px] shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain">
+            <div className="expense-sheet-header sticky top-0 z-10 bg-[#FCFBF7]/95 backdrop-blur px-5 pb-4 pt-2 sm:pt-4 border-b border-[#ECE9E1] flex items-center justify-between select-none" style={{ transform: `translateY(${sheetDragOffset}px)`, transition: sheetTouchStart === null ? "transform 180ms cubic-bezier(0.23, 1, 0.32, 1)" : "none" }} onTouchStart={event => { setSheetTouchStart(event.changedTouches[0]?.clientY ?? null); setSheetDragOffset(0); }} onTouchMove={event => { if (sheetTouchStart === null) return; const delta = Math.max(0, (event.changedTouches[0]?.clientY ?? 0) - sheetTouchStart); setSheetDragOffset(Math.min(delta, 180)); }} onTouchEnd={() => { if (sheetDragOffset > 80) { setSheetTouchStart(null); setSheetDragOffset(window.innerHeight); window.setTimeout(() => { setExpenseOpen(false); setSheetDragOffset(0); }, 180); } else { setSheetTouchStart(null); setSheetDragOffset(0); } }} onTouchCancel={() => { setSheetTouchStart(null); setSheetDragOffset(0); }}>
               <span className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[#C9D4CC] sm:hidden" aria-hidden="true" />
               <div><p className="eyebrow">{editingExpenseId ? "แก้ไขรายการรายจ่าย" : "บันทึกรายการใหม่"}</p><h2 className="font-display text-2xl mt-1">{editingExpenseId ? "แก้ไขรายจ่าย" : "เพิ่มรายจ่าย"}</h2></div>
               <Button variant="ghost" onClick={() => setExpenseOpen(false)} className="h-9 w-9 p-0 rounded-xl" aria-label="ปิดฟอร์มเพิ่มรายจ่าย"><X className="h-5 w-5" /></Button>
